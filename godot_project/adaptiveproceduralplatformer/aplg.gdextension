@@ -1,0 +1,25 @@
+; APLG GDExtension manifest
+; ============================================================
+; This file tells Godot 4 how to load our C++ DLL.
+;
+; Key fields:
+;   entry_symbol  — the exported C function Godot calls first
+;                   MUST match "extern C" function name in GDExtension.cpp
+;
+;   compatibility_minimum — minimum Godot version this works with
+;
+;   [libraries] paths are relative to THIS .gdextension file's location.
+;   Our DLL is copied here by the CMake post-build step.
+; ============================================================
+
+[configuration]
+
+entry_symbol = "aplg_library_init"
+compatibility_minimum = 4.2
+
+[libraries]
+
+; Windows 64-bit (debug and release both point to the same DLL
+; since we build one configuration at a time via build.bat)
+windows.debug.x86_64 = "res://AdaptiveProceduralLevelGeneration_gdextension.dll"
+windows.release.x86_64 = "res://AdaptiveProceduralLevelGeneration_gdextension.dll"

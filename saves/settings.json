@@ -1,0 +1,11 @@
+"{
+      "masterVolume": 0.75,
+      "vsync": true,
+      "sfxVolume": 0.8,
+      "musicVolume": 0.8,
+      "resolutionHeight": 1440,
+      "fullscreen": false,
+      "resolutionWidth": 2560,
+      "showFPS": false,
+      "defaultDifficulty": 3
+    }"

@@ -1,0 +1,48 @@
+[gd_scene load_steps=10 format=3 uid="uid://aplg_player"]
+
+[ext_resource type="Script" path="res://Scripts/PlayerRefactored.gd" id="1_player"]
+[ext_resource type="Script" path="res://Scripts/PlayerMovement.gd" id="2_movement"]
+[ext_resource type="Script" path="res://Scripts/PlayerHealth.gd" id="3_health"]
+[ext_resource type="Script" path="res://Scripts/PlayerInteraction.gd" id="4_interaction"]
+[ext_resource type="Script" path="res://Scripts/PlayerAnalytics.gd" id="5_analytics"]
+[ext_resource type="Script" path="res://Scripts/TileService.gd" id="6_tile_service"]
+[ext_resource type="Script" path="res://Scripts/CameraController.gd" id="7_camera"]
+[ext_resource type="Texture2D" path="res://player_suited.png" id="8_sprite"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(16, 32)
+
+[node name="Player" type="CharacterBody2D"]
+script = ExtResource("1_player")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(0.35, 0.35)
+texture = ExtResource("8_sprite")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+script = ExtResource("7_camera")
+zoom_level = 2.0
+follow_speed = 8.0
+look_ahead_amount = 100.0
+enable_smoothing = true
+
+[node name="PlayerMovement" type="Node" parent="."]
+script = ExtResource("2_movement")
+
+[node name="PlayerHealth" type="Node" parent="."]
+script = ExtResource("3_health")
+
+[node name="PlayerInteraction" type="Area2D" parent="."]
+script = ExtResource("4_interaction")
+
+[node name="PlayerInteractionCollision" type="CollisionShape2D" parent="PlayerInteraction"]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="PlayerAnalytics" type="Node" parent="."]
+script = ExtResource("5_analytics")
+
+[node name="TileService" type="Node" parent="."]
+script = ExtResource("6_tile_service")

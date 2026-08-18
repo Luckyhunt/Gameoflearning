@@ -1,0 +1,13 @@
+; Godot 4 Scene File
+; ============================================================
+; VisualManager.tscn — Visual System Integration Manager
+; Coordinates all visual systems with the game architecture
+; Maintains modular, signal-based communication
+; ============================================================
+
+[gd_scene load_steps=1 format=3 uid="uid://aplg_visual_manager"]
+
+[ext_resource type="Script" path="res://Scripts/VisualManager.gd" id="1_visual_manager"]
+
+[node name="VisualManager" type="Node"]
+script = ExtResource("1_visual_manager")

@@ -1,0 +1,18 @@
+[configuration]
+
+entry_symbol = "aplg_library_init"
+
+compatibility_minimum = 4.2
+
+[libraries]
+
+windows.debug.x86_64 = "./AdaptiveProceduralLevelGeneration_gdextension.dll"
+windows.release.x86_64 = "./AdaptiveProceduralLevelGeneration_gdextension.dll"
+
+linux.debug.x86_64 = "./libAdaptiveProceduralLevelGeneration_gdextension.so"
+linux.release.x86_64 = "./libAdaptiveProceduralLevelGeneration_gdextension.so"
+
+macos.debug.arm64 = "./libAdaptiveProceduralLevelGeneration_gdextension.dylib"
+macos.debug.universal = "./libAdaptiveProceduralLevelGeneration_gdextension.dylib"
+macos.release.arm64 = "./libAdaptiveProceduralLevelGeneration_gdextension.dylib"
+macos.release.universal = "./libAdaptiveProceduralLevelGeneration_gdextension.dylib"

@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://b11x436errudc"]
+
+[ext_resource type="Script" uid="uid://ctg27g03tax0p" path="res://Scripts/Main.gd" id="1_main"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="EngineBridge" type="EngineBridge" parent="."]
+
+[node name="TileMapLayer" type="TileMapLayer" parent="."]
