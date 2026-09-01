@@ -852,6 +852,65 @@ void EnsureRenderSurface(HDC hdc) {
         }
     }
 }
+
+// ──────────────────────────────────────────────────────────────
+// Pixelated Background Render Helpers (Blocky Retro Pixel Edges)
+// ──────────────────────────────────────────────────────────────
+inline void FillPixelBlock(HDC hdc, int x, int y, int w, int h, COLORREF color, int pixelSize = 6) {
+    HBRUSH brush = CreateSolidBrush(color);
+    int startX = (x / pixelSize) * pixelSize;
+    int startY = (y / pixelSize) * pixelSize;
+    int endX = ((x + w + pixelSize - 1) / pixelSize) * pixelSize;
+    int endY = ((y + h + pixelSize - 1) / pixelSize) * pixelSize;
+
+    for (int py = startY; py < endY; py += pixelSize) {
+        for (int px = startX; px < endX; px += pixelSize) {
+            RECT r = { px, py, px + pixelSize - 1, py + pixelSize - 1 };
+            FillRect(hdc, &r, brush);
+        }
+    }
+    DeleteObject(brush);
+}
+
+inline void DrawPixelatedCircle(HDC hdc, int cx, int cy, int radius, COLORREF color, int pixelSize = 6) {
+    HBRUSH brush = CreateSolidBrush(color);
+    int rBlocks = radius / pixelSize;
+    int cxBlock = cx / pixelSize;
+    int cyBlock = cy / pixelSize;
+
+    for (int by = -rBlocks; by <= rBlocks; ++by) {
+        for (int bx = -rBlocks; bx <= rBlocks; ++bx) {
+            if (bx * bx + by * by <= rBlocks * rBlocks) {
+                int px = (cxBlock + bx) * pixelSize;
+                int py = (cyBlock + by) * pixelSize;
+                RECT r = { px, py, px + pixelSize - 1, py + pixelSize - 1 };
+                FillRect(hdc, &r, brush);
+            }
+        }
+    }
+    DeleteObject(brush);
+}
+
+inline void DrawPixelatedMountainRange(HDC hdc, int startX, int baseScale, int width, int peakHeight, COLORREF color, int pixelSize = 8) {
+    HBRUSH brush = CreateSolidBrush(color);
+    int totalCols = width / pixelSize;
+    int centerCol = totalCols / 2;
+
+    for (int col = 0; col < totalCols; ++col) {
+        int distFromPeak = std::abs(col - centerCol);
+        int colHeightBlocks = (peakHeight / pixelSize) - (distFromPeak * 2);
+        if (colHeightBlocks < 0) colHeightBlocks = 0;
+
+        int px = startX + col * pixelSize;
+        for (int h = 0; h < colHeightBlocks; ++h) {
+            int py = baseScale - h * pixelSize;
+            RECT r = { px, py, px + pixelSize - 1, py + pixelSize - 1 };
+            FillRect(hdc, &r, brush);
+        }
+    }
+    DeleteObject(brush);
+}
+
 // ──────────────────────────────────────────────────────────────
 // Double-Buffered GDI Renderer
 // ──────────────────────────────────────────────────────────────
@@ -866,64 +925,60 @@ void RenderGame(HDC hdc) {
     EnsureRenderSurface(hdc);
     if (!g_memDC) return;
 
-    // Clear background with Celestial Cosmic Nebula & Starfield
+    // Clear background with Celestial Cosmic Nebula
     HBRUSH bgBrush = CreateSolidBrush(RGB(10, 14, 32));
     RECT fillRect = { 0, 0, g_screenWidth, g_screenHeight };
     FillRect(g_memDC, &fillRect, bgBrush);
     DeleteObject(bgBrush);
 
-    // Celestial Moon / Planet Orb in Upper Outer Space
-    HBRUSH moonGlow = CreateSolidBrush(RGB(40, 90, 160));
-    HBRUSH moonBrush = CreateSolidBrush(RGB(170, 225, 255));
+    // Celestial Moon / Planet Orb in Upper Outer Space (Stair-stepped retro pixel edges)
     int moonX = g_screenWidth - 260;
     int moonY = 80;
-    RECT mgR = { moonX - 35, moonY - 35, moonX + 35, moonY + 35 };
-    RECT mR  = { moonX - 25, moonY - 25, moonX + 25, moonY + 25 };
-    FillRect(g_memDC, &mgR, moonGlow);
-    FillRect(g_memDC, &mR, moonBrush);
-    DeleteObject(moonGlow);
-    DeleteObject(moonBrush);
+    DrawPixelatedCircle(g_memDC, moonX, moonY, 42, RGB(40, 90, 160), 6);
+    DrawPixelatedCircle(g_memDC, moonX, moonY, 30, RGB(170, 225, 255), 6);
 
-    // Glowing Starfield Particles
-    for (int i = 0; i < 50; ++i) {
-        int sx = (i * 73 + 19) % g_screenWidth;
-        int sy = (i * 37 + 11) % (g_screenHeight / 2 + 50);
+    // Pixelated Glowing Starfield (4x4 retro pixel blocks)
+    for (int i = 0; i < 55; ++i) {
+        int sx = ((i * 73 + 19) % g_screenWidth / 6) * 6;
+        int sy = ((i * 37 + 11) % (g_screenHeight / 2 + 50) / 6) * 6;
         COLORREF starColor = (i % 3 == 0) ? RGB(255, 220, 130) : ((i % 2 == 0) ? RGB(0, 220, 255) : RGB(240, 245, 255));
-        SetPixel(g_memDC, sx, sy, starColor);
-        SetPixel(g_memDC, sx + 1, sy, starColor);
+        FillPixelBlock(g_memDC, sx, sy, 6, 6, starColor, 6);
     }
 
-    // Sci-Fi Metropolis / Campus Skylines with Cyan & Magenta Neon Lit Windows
-    HBRUSH bldgBrush = CreateSolidBrush(RGB(24, 32, 50));
-    for (int bx = 30; bx < g_screenWidth; bx += 200) {
-        RECT b = { bx, 190, bx + 140, g_screenHeight };
-        FillRect(g_memDC, &b, bldgBrush);
+    // Distant Pixelated Mountain Backdrop (Stair-stepped blocky slopes)
+    for (int mx = -40; mx < g_screenWidth + 100; mx += 260) {
+        DrawPixelatedMountainRange(g_memDC, mx, 380, 280, 160, RGB(18, 24, 42), 8);
+    }
 
-        // Neon Windows Grid
-        for (int wy = 210; wy < g_screenHeight - 80; wy += 32) {
-            for (int wx = bx + 15; wx < bx + 120; wx += 26) {
+    // Sci-Fi Metropolis / Campus Skylines with Pixelated Edges & Neon Lit Windows
+    for (int bx = 30; bx < g_screenWidth; bx += 200) {
+        // Main building body with pixelated block edges
+        FillPixelBlock(g_memDC, bx, 220, 140, g_screenHeight - 220, RGB(24, 32, 50), 6);
+        // Pixelated crenellated rooftop battlements
+        for (int rx = bx + 6; rx < bx + 130; rx += 24) {
+            FillPixelBlock(g_memDC, rx, 202, 12, 18, RGB(24, 32, 50), 6);
+        }
+
+        // Neon Windows Grid with pixelated block edges
+        for (int wy = 234; wy < g_screenHeight - 80; wy += 36) {
+            for (int wx = bx + 18; wx < bx + 120; wx += 30) {
                 COLORREF winColor = ((wx + wy) % 5 == 0) ? RGB(255, 60, 180) : RGB(0, 220, 255);
-                HBRUSH winBrush = CreateSolidBrush(winColor);
-                RECT winR = { wx, wy, wx + 12, wy + 16 };
-                FillRect(g_memDC, &winR, winBrush);
-                DeleteObject(winBrush);
+                FillPixelBlock(g_memDC, wx, wy, 12, 18, winColor, 6);
             }
         }
     }
-    DeleteObject(bldgBrush);
 
-    // Lush Canopy Trees in Campus Backdrop
-    HBRUSH treeBrush = CreateSolidBrush(RGB(32, 95, 52));
-    HBRUSH trunkBrush = CreateSolidBrush(RGB(75, 48, 32));
+    // Lush Canopy Trees in Campus Backdrop with Stair-Stepped Pixelated Foliage
     for (int tx = 180; tx < g_screenWidth; tx += 220) {
-        RECT trk = { tx + 18, 340, tx + 26, g_screenHeight };
-        FillRect(g_memDC, &trk, trunkBrush);
+        // Pixelated tree trunk
+        FillPixelBlock(g_memDC, tx + 18, 340, 12, g_screenHeight - 340, RGB(75, 48, 32), 6);
 
-        RECT t = { tx, 300, tx + 44, 345 };
-        FillRect(g_memDC, &t, treeBrush);
+        // Pixelated foliage steps
+        FillPixelBlock(g_memDC, tx - 12, 324, 72, 24, RGB(32, 95, 52), 6);
+        FillPixelBlock(g_memDC, tx - 6, 306, 60, 24, RGB(38, 115, 62), 6);
+        FillPixelBlock(g_memDC, tx, 288, 48, 24, RGB(45, 135, 72), 6);
+        FillPixelBlock(g_memDC, tx + 6, 276, 36, 18, RGB(55, 155, 82), 6);
     }
-    DeleteObject(trunkBrush);
-    DeleteObject(treeBrush);
 
     if (g_game.state == GameState::StartMenu) {
         // Render Start Menu Container Card

@@ -36,6 +36,13 @@ func _ready() -> void:
 	_game_mgr = _load_module("res://Scripts/GameManager.gd")
 	_analytics = _load_module("res://Scripts/Analytics.gd")
 
+	var bg_script: Resource = load("res://Scripts/BackgroundParallax.gd")
+	if bg_script:
+		var bg_parallax := ParallaxBackground.new()
+		bg_parallax.set_script(bg_script)
+		add_child(bg_parallax)
+		move_child(bg_parallax, 0)
+
 	(_analytics as Node).set("bridge", bridge)
 
 	var hud_res: Resource = load("res://Scenes/HUD.tscn")
