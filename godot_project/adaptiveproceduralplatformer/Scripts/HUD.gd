@@ -48,6 +48,8 @@ var _visual_manager: Node = null
 
 @onready var hbox_lives : Node = get_node_or_null("PanelRight/VBox/HBoxLives")
 @onready var hbox_deaths : Node = get_node_or_null("PanelRight/VBox/HBoxDeaths")
+@onready var lbl_lives  : Label = get_node_or_null("PanelRight/VBox/HBoxLives/LblLives") as Label
+@onready var lbl_deaths : Label = get_node_or_null("PanelRight/VBox/HBoxDeaths/LblDeaths") as Label
 @onready var lbl_coins  : Label = $PanelRight/VBox/HBoxCoins/LblCoins
 @onready var lbl_timer  : Label = $PanelRight/VBox/HBoxTime/LblTimer
 
@@ -64,8 +66,8 @@ var _visual_manager: Node = null
 # ─────────────────────────────────────────────────────────────────
 func _ready() -> void:
 	if _game_over_panel: _game_over_panel.visible = false
-	if hbox_lives: (hbox_lives as Control).visible = false
-	if hbox_deaths: (hbox_deaths as Control).visible = false
+	if hbox_lives: (hbox_lives as Control).visible = true
+	if hbox_deaths: (hbox_deaths as Control).visible = true
 	
 	# Get visual manager
 	_visual_manager = get_node_or_null("/root/VisualManager")
@@ -112,10 +114,12 @@ func _refresh() -> void:
 		lbl_skill.text = "0%"
 
 	# Right panel - Player stats
+	if lbl_lives: lbl_lives.text = str(lives)
+	if lbl_deaths: lbl_deaths.text = str(deaths)
 	if lbl_coins: lbl_coins.text = str(coins_collected)
 
 	var total_sec := int(elapsed_time)
-	var mm := total_sec / 60.0
+	var mm := total_sec / 60
 	var ss := total_sec % 60
 	lbl_timer.text = "%02d:%02d" % [mm, ss]
 

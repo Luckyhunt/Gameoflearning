@@ -45,6 +45,8 @@ struct SettingsData {
     float32 masterVolume;
     float32 musicVolume;
     float32 sfxVolume;
+    float32 actionVolume;
+    bool audioEnabled;
     bool fullscreen;
     int32 resolutionWidth;
     int32 resolutionHeight;
@@ -56,6 +58,8 @@ struct SettingsData {
         : masterVolume(1.0f)
         , musicVolume(0.8f)
         , sfxVolume(0.8f)
+        , actionVolume(0.9f)
+        , audioEnabled(true)
         , fullscreen(false)
         , resolutionWidth(1920)
         , resolutionHeight(1080)

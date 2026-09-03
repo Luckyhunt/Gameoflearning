@@ -242,15 +242,15 @@ int main() {
         level.enemyPositions.push_back(
             Vec2i(level.spawnPosition.x + 1, level.spawnPosition.y));
 
-        APLG::LevelValidator validator;
+        APLG::Validation::LevelValidator validator;
         validator.setCheckPath(false);
         validator.setCheckGaps(false);
         validator.setCheckCollectables(false);
-        APLG::ValidationResult result = validator.validate(level);
+        APLG::Validation::ValidationResult result = validator.validate(level);
 
         if (testPassed("Warnings generated for enemy near spawn", !result.warnings.empty())) {
-            for (const auto& warning : result.warnings) {
-                std::cout << "  Warning: " << warning << std::endl;
+            for (const auto& warn : result.warnings) {
+                std::cout << "  Warning: " << warn << std::endl;
             }
             ++passed;
         } else {

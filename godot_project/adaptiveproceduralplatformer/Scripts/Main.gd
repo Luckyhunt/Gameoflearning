@@ -95,10 +95,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				_game_mgr.set("level_number", lvl + 1)
 				_start_new_level()
 
-# ─────────────────────────────────────────────────────────────────
 func _process(_delta: float) -> void:
 	(_level_controller as Node).call("process_frame")
 	_update_hud()
+	_update_parallax()
+
+func _update_parallax() -> void:
+	if _level_controller == null: return
+	var pnode: Node = _level_controller.get("player_node") as Node
+	if pnode and is_instance_valid(pnode):
+		var pos: Vector2 = pnode.get("global_position") as Vector2
+		var visual_mgr := get_node_or_null("/root/VisualManager")
+		if visual_mgr and visual_mgr.has_method("set_background_scroll"):
+			visual_mgr.call("set_background_scroll", pos * -1.0)
 
 # ─────────────────────────────────────────────────────────────────
 func _start_new_level() -> void:

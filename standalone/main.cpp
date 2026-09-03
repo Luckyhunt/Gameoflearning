@@ -182,6 +182,8 @@ struct StandaloneGame {
     bool keyInteractPressed = false;
 } g_game;
 
+int g_selectedSettingsRow = 0;
+
 // GDI Double buffering handles
 HDC g_memDC = NULL;
 HBITMAP g_memBitmap = NULL;
@@ -337,6 +339,33 @@ void DrawPanel(HDC hdc, int x, int y, int w, int h, COLORREF bgColor, COLORREF b
     DeleteDC(hdcMem);
 }
 
+// Helper function to render rounded GDI panels with customizable corner radius and border
+void DrawRoundedPanel(HDC hdc, int x, int y, int w, int h, COLORREF bgColor, COLORREF borderColor, BYTE alpha = 230, int cornerRadius = 16) {
+    if (w <= 0 || h <= 0) return;
+    HDC hdcMem = CreateCompatibleDC(hdc);
+    HBITMAP hbmp = CreateCompatibleBitmap(hdc, w, h);
+    HBITMAP hOldBmp = (HBITMAP)SelectObject(hdcMem, hbmp);
+
+    HBRUSH bgBrush = CreateSolidBrush(bgColor);
+    HPEN borderPen = CreatePen(PS_SOLID, 2, borderColor);
+    HPEN hOldPen = (HPEN)SelectObject(hdcMem, borderPen);
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdcMem, bgBrush);
+
+    RoundRect(hdcMem, 0, 0, w, h, cornerRadius, cornerRadius);
+
+    SelectObject(hdcMem, hOldPen);
+    SelectObject(hdcMem, hOldBrush);
+    DeleteObject(bgBrush);
+    DeleteObject(borderPen);
+
+    BLENDFUNCTION blend = { AC_SRC_OVER, 0, alpha, 0 };
+    AlphaBlend(hdc, x, y, w, h, hdcMem, 0, 0, w, h, blend);
+
+    SelectObject(hdcMem, hOldBmp);
+    DeleteObject(hbmp);
+    DeleteDC(hdcMem);
+}
+
 // Forward Declarations
 void InitGame();
 void StartNewLevel();
@@ -475,6 +504,9 @@ void InitGame() {
     g_game.totalAttacksLanded = 0;
     g_game.totalJumpsAttempted = 0;
     g_game.totalJumpsLanded = 0;
+
+    AssetManager::instance().initialize();
+    AssetManager::instance().startMusic();
 
     StartNewLevel();
 }
@@ -930,109 +962,100 @@ void RenderGame(HDC hdc) {
     EnsureRenderSurface(hdc);
     if (!g_memDC) return;
 
-    // Clear background with Celestial Cosmic Nebula
-    HBRUSH bgBrush = CreateSolidBrush(RGB(10, 14, 32));
-    RECT fillRect = { 0, 0, g_screenWidth, g_screenHeight };
-    FillRect(g_memDC, &fillRect, bgBrush);
-    DeleteObject(bgBrush);
-
-    // Celestial Moon / Planet Orb in Upper Outer Space (Stair-stepped retro pixel edges)
-    int moonX = g_screenWidth - 260;
-    int moonY = 80;
-    DrawPixelatedCircle(g_memDC, moonX, moonY, 42, RGB(40, 90, 160), 6);
-    DrawPixelatedCircle(g_memDC, moonX, moonY, 30, RGB(170, 225, 255), 6);
-
-    // Pixelated Glowing Starfield (4x4 retro pixel blocks)
-    for (int i = 0; i < 55; ++i) {
-        int sx = ((i * 73 + 19) % g_screenWidth / 6) * 6;
-        int sy = ((i * 37 + 11) % (g_screenHeight / 2 + 50) / 6) * 6;
-        COLORREF starColor = (i % 3 == 0) ? RGB(255, 220, 130) : ((i % 2 == 0) ? RGB(0, 220, 255) : RGB(240, 245, 255));
-        FillPixelBlock(g_memDC, sx, sy, 6, 6, starColor, 6);
+    // 1. Atmosphere Gradient Background Sky (Deep Twilight Navy -> Violet Dusk)
+    for (int y = 0; y < g_screenHeight; ++y) {
+        float ratio = (float)y / (float)g_screenHeight;
+        BYTE r = static_cast<BYTE>(10 + ratio * (35 - 10));
+        BYTE g = static_cast<BYTE>(14 + ratio * (22 - 14));
+        BYTE b = static_cast<BYTE>(28 + ratio * (65 - 28));
+        HPEN skyPen = CreatePen(PS_SOLID, 1, RGB(r, g, b));
+        HPEN hOldPen = (HPEN)SelectObject(g_memDC, skyPen);
+        MoveToEx(g_memDC, 0, y, NULL);
+        LineTo(g_memDC, g_screenWidth, y);
+        SelectObject(g_memDC, hOldPen);
+        DeleteObject(skyPen);
     }
 
-    // Distant Pixelated Mountain Backdrop (Stair-stepped blocky slopes)
-    for (int mx = -40; mx < g_screenWidth + 100; mx += 260) {
-        DrawPixelatedMountainRange(g_memDC, mx, 380, 280, 160, RGB(18, 24, 42), 8);
+    // 2. Soft Twinkling Stars
+    for (int i = 0; i < 60; ++i) {
+        int sx = ((i * 113 + 37) % g_screenWidth);
+        int sy = ((i * 47 + 13) % (g_screenHeight / 2));
+        COLORREF starColor = (i % 4 == 0) ? RGB(255, 215, 120) : ((i % 2 == 0) ? RGB(160, 220, 255) : RGB(220, 230, 255));
+        FillPixelBlock(g_memDC, sx, sy, (i % 3 == 0) ? 3 : 2, (i % 3 == 0) ? 3 : 2, starColor, 1);
     }
 
-    // Sci-Fi Metropolis / Campus Skylines with Pixelated Edges & Neon Lit Windows
-    for (int bx = 30; bx < g_screenWidth; bx += 200) {
-        // Main building body with pixelated block edges
-        FillPixelBlock(g_memDC, bx, 220, 140, g_screenHeight - 220, RGB(24, 32, 50), 6);
-        // Pixelated crenellated rooftop battlements
-        for (int rx = bx + 6; rx < bx + 130; rx += 24) {
-            FillPixelBlock(g_memDC, rx, 202, 12, 18, RGB(24, 32, 50), 6);
-        }
-
-        // Neon Windows Grid with pixelated block edges
-        for (int wy = 234; wy < g_screenHeight - 80; wy += 36) {
-            for (int wx = bx + 18; wx < bx + 120; wx += 30) {
-                COLORREF winColor = ((wx + wy) % 5 == 0) ? RGB(255, 60, 180) : RGB(0, 220, 255);
-                FillPixelBlock(g_memDC, wx, wy, 12, 18, winColor, 6);
-            }
-        }
+    // 3. Layer 1 Parallax: Deep Distant Mountain Silhouettes (Parallax Factor 0.08)
+    int mountainOffsetFar = static_cast<int>(g_game.cameraPos.x * 0.08f);
+    for (int mx = -200; mx < g_screenWidth + 300; mx += 240) {
+        int renderX = mx - (mountainOffsetFar % 240);
+        DrawPixelatedMountainRange(g_memDC, renderX, 360, 260, 180, RGB(18, 22, 45), 6);
     }
 
-    // Lush Canopy Trees in Campus Backdrop with Stair-Stepped Pixelated Foliage
-    for (int tx = 180; tx < g_screenWidth; tx += 220) {
-        // Pixelated tree trunk
-        FillPixelBlock(g_memDC, tx + 18, 340, 12, g_screenHeight - 340, RGB(75, 48, 32), 6);
+    // 4. Layer 2 Parallax: Midground Mountain Ridges & Mist (Parallax Factor 0.20)
+    int mountainOffsetMid = static_cast<int>(g_game.cameraPos.x * 0.20f);
+    for (int mx = -200; mx < g_screenWidth + 300; mx += 180) {
+        int renderX = mx - (mountainOffsetMid % 180);
+        DrawPixelatedMountainRange(g_memDC, renderX, 420, 200, 140, RGB(26, 32, 60), 4);
+    }
 
-        // Pixelated foliage steps
-        FillPixelBlock(g_memDC, tx - 12, 324, 72, 24, RGB(32, 95, 52), 6);
-        FillPixelBlock(g_memDC, tx - 6, 306, 60, 24, RGB(38, 115, 62), 6);
-        FillPixelBlock(g_memDC, tx, 288, 48, 24, RGB(45, 135, 72), 6);
-        FillPixelBlock(g_memDC, tx + 6, 276, 36, 18, RGB(55, 155, 82), 6);
+    // 5. Layer 3 Parallax: Rolling Hills & Forest Silhouettes (Parallax Factor 0.38)
+    int hillOffset = static_cast<int>(g_game.cameraPos.x * 0.38f);
+    for (int hx = -150; hx < g_screenWidth + 200; hx += 160) {
+        int renderX = hx - (hillOffset % 160);
+        HBRUSH hillBrush = CreateSolidBrush(RGB(18, 42, 40));
+        RECT hillRect = { renderX, 460, renderX + 160, g_screenHeight };
+        FillRect(g_memDC, &hillRect, hillBrush);
+        DeleteObject(hillBrush);
     }
 
     if (g_game.state == GameState::StartMenu) {
-        // Render Start Menu Container Card
-        DrawPanel(g_memDC, 280, 100, 720, 520, RGB(14, 18, 30), RGB(50, 140, 240), 230);
+        // Render Start Menu Container Card with Gold Trim
+        DrawRoundedPanel(g_memDC, 260, 80, 760, 560, RGB(14, 18, 32), RGB(255, 215, 0), 240, 20);
 
         SetBkMode(g_memDC, TRANSPARENT);
-        HFONT hTitleFont = CreateFontA(36, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Trebuchet MS");
+        HFONT hTitleFont = CreateFontA(34, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Trebuchet MS");
         SelectObject(g_memDC, hTitleFont);
         SetTextColor(g_memDC, RGB(255, 215, 0));
-        TextOutA(g_memDC, 330, 130, "C++ Demo", 28);
+        TextOutA(g_memDC, 330, 110, "ADAPTIVE PROCEDURAL PLATFORMER", 30);
         DeleteObject(hTitleFont);
 
-        HFONT hSubFont = CreateFontA(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
+        HFONT hSubFont = CreateFontA(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
         SelectObject(g_memDC, hSubFont);
         SetTextColor(g_memDC, RGB(170, 215, 255));
-        TextOutA(g_memDC, 345, 180, "Adaptive Procedural Platformer  |  Hybrid Graph & Rhythm Generator", 67);
+        TextOutA(g_memDC, 335, 158, "Next-Gen Level Generation Engine | Procedural World & Real-Time Skill Model", 73);
 
         // Menu Option Cards
-        int menuY = 240;
+        int menuY = 210;
         const char* menuItems[] = {
-            "[ENTER / SPACE]   Start Game",
-            "[C]               Controls & Action Keys Guide",
-            "[O]               Settings & Options Modal",
-            "[S]               Performance Statistics Dashboard",
-            "[ESC]             Quit Game"
+            "[ENTER / SPACE]   Start New Campaign",
+            "[C]               Action Controls & Combat Guide",
+            "[O]               Audio & Options Settings Modal",
+            "[S]               Real-Time Performance Dashboard",
+            "[ESC]             Exit Platformer App"
         };
         for (int i = 0; i < 5; ++i) {
-            DrawPanel(g_memDC, 340, menuY, 600, 42, RGB(24, 30, 48), RGB(70, 90, 130), 230);
-            SetTextColor(g_memDC, RGB(240, 245, 255));
-            TextOutA(g_memDC, 360, menuY + 10, menuItems[i], (int)strlen(menuItems[i]));
-            menuY += 52;
+            DrawRoundedPanel(g_memDC, 320, menuY, 640, 48, RGB(26, 36, 60), RGB(60, 120, 200), 235, 12);
+            SetTextColor(g_memDC, RGB(245, 248, 255));
+            TextOutA(g_memDC, 345, menuY + 13, menuItems[i], (int)strlen(menuItems[i]));
+            menuY += 58;
         }
 
-        SetTextColor(g_memDC, RGB(140, 180, 220));
-        TextOutA(g_memDC, 350, 570, "Student Combat: J (Pencil Jab) | K (Ruler Sweep) | U (Desk Slam)", 63);
+        SetTextColor(g_memDC, RGB(255, 215, 0));
+        TextOutA(g_memDC, 355, 580, "Combat Controls: J (Jab) | K (Ruler Sweep) | U (Desk Slam) | H (Dash)", 68);
         DeleteObject(hSubFont);
     }
     else if (g_game.state == GameState::ControlsModal) {
         // Controls Modal Container Card
-        DrawPanel(g_memDC, 260, 90, 760, 540, RGB(14, 18, 30), RGB(255, 215, 0), 230);
+        DrawRoundedPanel(g_memDC, 260, 80, 760, 560, RGB(14, 18, 32), RGB(255, 215, 0), 240, 20);
 
         SetBkMode(g_memDC, TRANSPARENT);
         HFONT hFont = CreateFontA(26, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
         SelectObject(g_memDC, hFont);
         SetTextColor(g_memDC, RGB(255, 215, 0));
-        TextOutA(g_memDC, 460, 120, "CONTROLS & ACTION KEYS GUIDE", 28);
+        TextOutA(g_memDC, 450, 110, "CONTROLS & ACTION KEYS GUIDE", 28);
         DeleteObject(hFont);
 
-        HFONT hBody = CreateFontA(19, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
+        HFONT hBody = CreateFontA(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
         SelectObject(g_memDC, hBody);
 
         const char* controlsText[] = {
@@ -1047,52 +1070,82 @@ void RenderGame(HDC hdc) {
             "Restart Level         :  R"
         };
 
-        int cardY = 175;
+        int cardY = 160;
         for (int i = 0; i < 9; ++i) {
-            DrawPanel(g_memDC, 300, cardY, 680, 38, RGB(24, 32, 50), RGB(60, 80, 120), 230);
-            SetTextColor(g_memDC, RGB(220, 235, 255));
+            DrawRoundedPanel(g_memDC, 300, cardY, 680, 38, RGB(24, 34, 56), RGB(60, 90, 140), 230, 10);
+            SetTextColor(g_memDC, RGB(220, 238, 255));
             TextOutA(g_memDC, 320, cardY + 8, controlsText[i], (int)strlen(controlsText[i]));
             cardY += 44;
         }
 
         SetTextColor(g_memDC, RGB(255, 215, 0));
-        TextOutA(g_memDC, 450, 580, "Press [ESC] or [ENTER] to return", 32);
+        TextOutA(g_memDC, 450, 585, "Press [ESC] or [ENTER] to return", 32);
         DeleteObject(hBody);
     }
     else if (g_game.state == GameState::SettingsModal) {
         // Settings Modal Container Card
-        DrawPanel(g_memDC, 300, 110, 680, 500, RGB(14, 18, 30), RGB(0, 200, 255), 230);
+        DrawPanel(g_memDC, 280, 90, 720, 540, RGB(14, 18, 30), RGB(255, 215, 0), 235);
 
         SetBkMode(g_memDC, TRANSPARENT);
         HFONT hTitleFont = CreateFontA(26, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
         SelectObject(g_memDC, hTitleFont);
-        SetTextColor(g_memDC, RGB(0, 200, 255));
-        TextOutA(g_memDC, 460, 140, "SETTINGS & OPTIONS MODAL", 24);
+        SetTextColor(g_memDC, RGB(255, 215, 0));
+        TextOutA(g_memDC, 450, 115, "AUDIO & SYSTEM SETTINGS", 23);
         DeleteObject(hTitleFont);
 
-        HFONT hBody = CreateFontA(19, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
+        HFONT hBody = CreateFontA(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
         SelectObject(g_memDC, hBody);
 
-        std::string diffStr = "Current Difficulty Level : " + GetDifficultyString(g_game.difficultyManager.getCurrentDifficulty());
-        const char* settingsText[] = {
-            diffStr.c_str(),
-            "Adaptive Scaling Engine  : ENABLED (Real-time Skill Model)",
-            "Visual Particle Effects  : HIGH QUALITY (Double-Buffered)",
-            "Screen Resolution        : 1280 x 720 (Native GDI)",
-            "Continuous Collision     : ENABLED (Sub-stepped CCD AABB)",
-            "Audio / SFX Volume       : 80% (Synthesized Waveform)"
-        };
+        bool audioOn = AssetManager::instance().isAudioEnabled();
+        int masterPct = static_cast<int>(AssetManager::instance().getMasterVolume() * 100.0f);
+        int musicPct = static_cast<int>(AssetManager::instance().getMusicVolume() * 100.0f);
+        int sfxPct = static_cast<int>(AssetManager::instance().getSFXVolume() * 100.0f);
+        int actionPct = static_cast<int>(AssetManager::instance().getActionVolume() * 100.0f);
 
-        int cardY = 200;
-        for (int i = 0; i < 6; ++i) {
-            DrawPanel(g_memDC, 340, cardY, 600, 42, RGB(24, 34, 55), RGB(50, 120, 180), 230);
-            SetTextColor(g_memDC, RGB(230, 240, 255));
-            TextOutA(g_memDC, 360, cardY + 10, settingsText[i], (int)strlen(settingsText[i]));
-            cardY += 50;
+        std::string s0 = "Master Sound      : " + std::string(audioOn ? "[ON]  (Press M to Toggle)" : "[MUTED] (Press M to Toggle)");
+        std::string s1 = "Master Volume     : " + std::to_string(masterPct) + "%  [<- -> / 1]";
+        std::string s2 = "Music Volume      : " + std::to_string(musicPct) + "%  [<- -> / 2]";
+        std::string s3 = "SFX Volume        : " + std::to_string(sfxPct) + "%  [<- -> / 3]";
+        std::string s4 = "Action/SFX Volume : " + std::to_string(actionPct) + "%  [<- -> / 4]";
+
+        std::string settingsRows[5] = { s0, s1, s2, s3, s4 };
+        float volumes[5] = { audioOn ? 1.0f : 0.0f, AssetManager::instance().getMasterVolume(), AssetManager::instance().getMusicVolume(), AssetManager::instance().getSFXVolume(), AssetManager::instance().getActionVolume() };
+
+        int cardY = 165;
+        for (int i = 0; i < 5; ++i) {
+            bool isSelected = (g_selectedSettingsRow == i);
+            COLORREF borderColor = isSelected ? RGB(255, 215, 0) : RGB(50, 100, 160);
+            COLORREF cardBg = isSelected ? RGB(32, 45, 75) : RGB(24, 32, 50);
+
+            DrawPanel(g_memDC, 320, cardY, 640, 48, cardBg, borderColor, 230);
+
+            SetTextColor(g_memDC, isSelected ? RGB(255, 240, 180) : RGB(220, 235, 255));
+            std::string labelStr = (isSelected ? "> " : "  ") + settingsRows[i];
+            TextOutA(g_memDC, 335, cardY + 8, labelStr.c_str(), (int)labelStr.length());
+
+            // Render volume percentage bar inside row card
+            if (i > 0) {
+                int barX = 740;
+                int barY = cardY + 28;
+                int barW = 200;
+                int barH = 10;
+                DrawPanel(g_memDC, barX, barY, barW, barH, RGB(15, 20, 30), RGB(80, 100, 130), 255);
+                int fillW = static_cast<int>(barW * volumes[i]);
+                if (fillW > 0) {
+                    HBRUSH fillBrush = CreateSolidBrush(isSelected ? RGB(255, 200, 40) : RGB(50, 200, 255));
+                    RECT fillRect = { barX + 1, barY + 1, barX + fillW - 1, barY + barH - 1 };
+                    FillRect(g_memDC, &fillRect, fillBrush);
+                    DeleteObject(fillBrush);
+                }
+            }
+
+            cardY += 56;
         }
 
+        SetTextColor(g_memDC, RGB(180, 210, 245));
+        TextOutA(g_memDC, 345, 570, "Use Up/Down to Select  |  Left/Right or Number Keys to Adjust Volume", 66);
         SetTextColor(g_memDC, RGB(255, 215, 0));
-        TextOutA(g_memDC, 450, 550, "Press [ESC] or [ENTER] to return", 32);
+        TextOutA(g_memDC, 450, 595, "Press [ESC] or [ENTER] to Return & Save", 38);
         DeleteObject(hBody);
     }
     else if (g_game.state == GameState::Playing || g_game.state == GameState::PauseMenu ||
@@ -1294,12 +1347,12 @@ void RenderGame(HDC hdc) {
             DeleteDC(alphaDC);
         }
 
-        // HUD Header Bar Container Panels (90% Opaque, No Unframed Floating Text)
-        DrawPanel(g_memDC, 16, 12, 540, 48, RGB(14, 18, 30), RGB(50, 120, 200), 230);
-        DrawPanel(g_memDC, g_screenWidth - 520, 12, 504, 48, RGB(14, 18, 30), RGB(50, 120, 200), 230);
+        // Modern Top HUD Header Bar Container Panels with Gold Trim
+        DrawRoundedPanel(g_memDC, 16, 12, 580, 52, RGB(14, 18, 32), RGB(255, 215, 0), 240, 14);
+        DrawRoundedPanel(g_memDC, g_screenWidth - 560, 12, 544, 52, RGB(14, 18, 32), RGB(255, 215, 0), 240, 14);
 
         SetBkMode(g_memDC, TRANSPARENT);
-        HFONT hHudFont = CreateFontA(16, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
+        HFONT hHudFont = CreateFontA(15, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Trebuchet MS");
         SelectObject(g_memDC, hHudFont);
 
         int activeEnemies = 0;
@@ -1307,34 +1360,51 @@ void RenderGame(HDC hdc) {
 
         std::stringstream ssHudLeft;
         ssHudLeft << "LEVEL " << g_game.levelNumber
-                  << "   |   STUDENT HP: " << g_game.player.hp << "%"
-                  << "   |   FACULTY CLEARED: " << g_game.player.enemiesKilled << "/" << g_game.enemies.size();
+                  << "  |  HP: " << g_game.player.hp << "%"
+                  << "  |  ENEMIES: " << g_game.player.enemiesKilled << "/" << g_game.enemies.size();
 
         std::stringstream ssHudRight;
         ssHudRight << "TIME: " << std::fixed << std::setprecision(1) << g_game.player.timer << "s"
-                   << "   |   COMBO: x" << g_game.player.comboCount
-                   << "   |   DIFFICULTY: " << GetDifficultyString(g_game.difficultyManager.getCurrentDifficulty());
+                   << "  |  COMBO: x" << g_game.player.comboCount
+                   << "  |  DIFFICULTY: " << GetDifficultyString(g_game.difficultyManager.getCurrentDifficulty());
 
-        SetTextColor(g_memDC, RGB(255, 255, 255));
-        TextOutA(g_memDC, 30, 26, ssHudLeft.str().c_str(), (int)ssHudLeft.str().length());
-        TextOutA(g_memDC, g_screenWidth - 500, 26, ssHudRight.str().c_str(), (int)ssHudRight.str().length());
+        SetTextColor(g_memDC, RGB(255, 240, 180));
+        TextOutA(g_memDC, 30, 20, ssHudLeft.str().c_str(), (int)ssHudLeft.str().length());
+        TextOutA(g_memDC, g_screenWidth - 540, 20, ssHudRight.str().c_str(), (int)ssHudRight.str().length());
+
+        // HP Visual Fill Bar inside Left HUD Card
+        int hpBarX = 145;
+        int hpBarY = 42;
+        int hpBarW = 120;
+        int hpBarH = 10;
+        DrawRoundedPanel(g_memDC, hpBarX, hpBarY, hpBarW, hpBarH, RGB(10, 14, 22), RGB(80, 100, 140), 255, 4);
+        float hpPct = std::clamp((float)g_game.player.hp / (float)g_game.player.maxHp, 0.0f, 1.0f);
+        int fillW = static_cast<int>(hpBarW * hpPct);
+        if (fillW > 0) {
+            COLORREF hpColor = (hpPct > 0.5f) ? RGB(40, 220, 100) : ((hpPct > 0.25f) ? RGB(255, 180, 40) : RGB(255, 50, 50));
+            HBRUSH hpBrush = CreateSolidBrush(hpColor);
+            RECT fillRect = { hpBarX + 1, hpBarY + 1, hpBarX + fillW - 1, hpBarY + hpBarH - 1 };
+            FillRect(g_memDC, &fillRect, hpBrush);
+            DeleteObject(hpBrush);
+        }
+
         DeleteObject(hHudFont);
 
-        // Mini-Map Radar Overlay in Top Right Corner (150x90 Translucent Radar)
-        int mmW = 150;
-        int mmH = 90;
-        int mmX = g_screenWidth - 170;
-        int mmY = 70;
+        // Mini-Map Radar Overlay in Top Right Corner
+        int mmW = 160;
+        int mmH = 96;
+        int mmX = g_screenWidth - 180;
+        int mmY = 74;
 
-        DrawPanel(g_memDC, mmX, mmY, mmW, mmH, RGB(14, 18, 30), RGB(50, 180, 250), 230);
+        DrawRoundedPanel(g_memDC, mmX, mmY, mmW, mmH, RGB(14, 18, 32), RGB(255, 215, 0), 235, 12);
 
         float scaleX = (float)(mmW - 12) / (float)(g_game.currentLevel.width * TILE_SIZE);
         float scaleY = (float)(mmH - 24) / (float)(g_game.currentLevel.height * TILE_SIZE);
 
-        SetTextColor(g_memDC, RGB(50, 180, 250));
+        SetTextColor(g_memDC, RGB(255, 215, 0));
         HFONT hMmFont = CreateFontA(11, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
         SelectObject(g_memDC, hMmFont);
-        TextOutA(g_memDC, mmX + 8, mmY + 4, "CAMPUS RADAR", 12);
+        TextOutA(g_memDC, mmX + 10, mmY + 4, "MINI-MAP RADAR", 14);
         DeleteObject(hMmFont);
 
         // Render Miniature Tiles
@@ -1370,7 +1440,7 @@ void RenderGame(HDC hdc) {
             DeleteObject(eDot);
         }
 
-        // Render Student Player on Mini-Map (Cyan Pulse Dot)
+        // Render Player on Mini-Map (Cyan Pulse Dot)
         int mpx = mmX + 6 + (int)(g_game.player.position.x * scaleX);
         int mpy = mmY + 20 + (int)(g_game.player.position.y * scaleY);
         HBRUSH pDot = CreateSolidBrush(RGB(0, 240, 255));
@@ -1380,15 +1450,15 @@ void RenderGame(HDC hdc) {
 
         // Menu Overlays
         if (g_game.state == GameState::PauseMenu) {
-            DrawPanel(g_memDC, 380, 150, 520, 420, RGB(14, 18, 30), RGB(255, 215, 0), 235);
+            DrawRoundedPanel(g_memDC, 380, 140, 520, 440, RGB(14, 18, 32), RGB(255, 215, 0), 240, 18);
 
             HFONT hMenuFont = CreateFontA(30, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
             SelectObject(g_memDC, hMenuFont);
             SetTextColor(g_memDC, RGB(255, 215, 0));
-            TextOutA(g_memDC, 540, 180, "PAUSED", 6);
+            TextOutA(g_memDC, 540, 168, "PAUSED", 6);
             DeleteObject(hMenuFont);
 
-            HFONT hSubFont = CreateFontA(19, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
+            HFONT hSubFont = CreateFontA(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
             SelectObject(g_memDC, hSubFont);
 
             const char* pauseOptions[] = {
@@ -1400,29 +1470,27 @@ void RenderGame(HDC hdc) {
                 "[M]         Return to Main Menu"
             };
 
-            int pauseY = 240;
+            int pauseY = 225;
             for (int i = 0; i < 6; ++i) {
-                DrawPanel(g_memDC, 420, pauseY, 440, 38, RGB(24, 32, 50), RGB(70, 90, 140), 230);
+                DrawRoundedPanel(g_memDC, 410, pauseY, 460, 42, RGB(26, 36, 60), RGB(70, 110, 170), 235, 10);
                 SetTextColor(g_memDC, RGB(240, 245, 255));
-                TextOutA(g_memDC, 440, pauseY + 8, pauseOptions[i], (int)strlen(pauseOptions[i]));
-                pauseY += 46;
+                TextOutA(g_memDC, 430, pauseY + 10, pauseOptions[i], (int)strlen(pauseOptions[i]));
+                pauseY += 52;
             }
-
             DeleteObject(hSubFont);
         }
         else if (g_game.state == GameState::LevelComplete) {
-            DrawPanel(g_memDC, 340, 130, 600, 460, RGB(14, 18, 30), RGB(50, 255, 120), 235);
+            DrawRoundedPanel(g_memDC, 340, 120, 600, 480, RGB(14, 18, 32), RGB(50, 255, 120), 240, 20);
 
             SetBkMode(g_memDC, TRANSPARENT);
             HFONT hVicFont = CreateFontA(32, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
             SelectObject(g_memDC, hVicFont);
             SetTextColor(g_memDC, RGB(50, 255, 120));
-            TextOutA(g_memDC, 440, 160, "LEVEL CLEAR! VICTORY", 20);
+            TextOutA(g_memDC, 440, 150, "LEVEL CLEAR! VICTORY", 20);
             DeleteObject(hVicFont);
 
-            HFONT hBody = CreateFontA(19, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
+            HFONT hBody = CreateFontA(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
             SelectObject(g_memDC, hBody);
-            SetTextColor(g_memDC, RGB(240, 240, 255));
 
             std::stringstream ssStats;
             ssStats << "Time Taken         : " << std::fixed << std::setprecision(1) << g_game.player.timer << "s\n"
@@ -1432,32 +1500,32 @@ void RenderGame(HDC hdc) {
                     << "Next Difficulty    : " << GetDifficultyString(g_game.difficultyManager.getCurrentDifficulty());
 
             std::string line;
-            int yPos = 225;
+            int yPos = 215;
             while (std::getline(ssStats, line)) {
-                DrawPanel(g_memDC, 380, yPos, 520, 32, RGB(24, 32, 50), RGB(60, 100, 140), 230);
-                TextOutA(g_memDC, 400, yPos + 5, line.c_str(), (int)line.length());
-                yPos += 38;
+                DrawRoundedPanel(g_memDC, 380, yPos, 520, 36, RGB(26, 36, 60), RGB(60, 120, 170), 235, 10);
+                SetTextColor(g_memDC, RGB(235, 245, 255));
+                TextOutA(g_memDC, 400, yPos + 7, line.c_str(), (int)line.length());
+                yPos += 42;
             }
 
             SetTextColor(g_memDC, RGB(255, 215, 0));
-            TextOutA(g_memDC, 440, 470, "Press [ENTER / SPACE] to Next Level", 35);
-            TextOutA(g_memDC, 440, 505, "Press [S] to View Performance Statistics", 40);
+            TextOutA(g_memDC, 440, 480, "Press [ENTER / SPACE] to Next Level", 35);
+            TextOutA(g_memDC, 440, 515, "Press [S] to View Performance Statistics", 40);
 
             DeleteObject(hBody);
         }
         else if (g_game.state == GameState::PerformanceDashboard) {
-            DrawPanel(g_memDC, 260, 80, 760, 560, RGB(14, 18, 30), RGB(255, 215, 0), 235);
+            DrawRoundedPanel(g_memDC, 260, 75, 760, 570, RGB(14, 18, 32), RGB(255, 215, 0), 240, 20);
 
             SetBkMode(g_memDC, TRANSPARENT);
             HFONT hTitleFont = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
             SelectObject(g_memDC, hTitleFont);
             SetTextColor(g_memDC, RGB(255, 215, 0));
-            TextOutA(g_memDC, 440, 105, "PERFORMANCE & METRICS DASHBOARD", 33);
+            TextOutA(g_memDC, 440, 100, "PERFORMANCE & METRICS DASHBOARD", 33);
             DeleteObject(hTitleFont);
 
-            HFONT hStatFont = CreateFontA(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
+            HFONT hStatFont = CreateFontA(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Consolas");
             SelectObject(g_memDC, hStatFont);
-            SetTextColor(g_memDC, RGB(230, 230, 250));
 
             float atkAcc = (g_game.totalAttacksAttempted > 0) ? (float)g_game.totalAttacksLanded / (float)g_game.totalAttacksAttempted * 100.0f : 100.0f;
             float jumpAcc = (g_game.totalJumpsAttempted > 0) ? (float)g_game.totalJumpsLanded / (float)g_game.totalJumpsAttempted * 100.0f : 100.0f;
@@ -1478,35 +1546,36 @@ void RenderGame(HDC hdc) {
                    << "Generation Algorithm       : Hybrid Macro-Graph & Rhythm Generator";
 
             std::string line;
-            int yPos = 155;
+            int yPos = 145;
             while (std::getline(ssDash, line)) {
-                DrawPanel(g_memDC, 300, yPos, 680, 32, RGB(24, 32, 50), RGB(60, 90, 130), 230);
+                DrawRoundedPanel(g_memDC, 300, yPos, 680, 32, RGB(24, 34, 56), RGB(60, 90, 140), 230, 8);
+                SetTextColor(g_memDC, RGB(230, 240, 255));
                 TextOutA(g_memDC, 320, yPos + 6, line.c_str(), (int)line.length());
                 yPos += 37;
             }
 
             SetTextColor(g_memDC, RGB(255, 215, 0));
-            TextOutA(g_memDC, 460, 590, "Press [ESC] or [ENTER] to return", 32);
+            TextOutA(g_memDC, 460, 595, "Press [ESC] or [ENTER] to return", 32);
             DeleteObject(hStatFont);
         }
         else if (g_game.state == GameState::GameOver) {
-            DrawPanel(g_memDC, 360, 180, 560, 360, RGB(14, 18, 30), RGB(255, 50, 50), 235);
+            DrawRoundedPanel(g_memDC, 360, 170, 560, 380, RGB(18, 14, 28), RGB(255, 50, 50), 240, 20);
 
             HFONT hGofont = CreateFontA(38, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
             SelectObject(g_memDC, hGofont);
-            SetTextColor(g_memDC, RGB(255, 50, 50));
-            TextOutA(g_memDC, 520, 220, "GAME OVER", 9);
+            SetTextColor(g_memDC, RGB(255, 60, 60));
+            TextOutA(g_memDC, 520, 210, "GAME OVER", 9);
             DeleteObject(hGofont);
 
-            HFONT hSubFont = CreateFontA(19, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
+            HFONT hSubFont = CreateFontA(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
             SelectObject(g_memDC, hSubFont);
 
-            DrawPanel(g_memDC, 400, 290, 480, 38, RGB(24, 32, 50), RGB(120, 40, 40), 230);
-            DrawPanel(g_memDC, 400, 340, 480, 38, RGB(24, 32, 50), RGB(120, 40, 40), 230);
+            DrawRoundedPanel(g_memDC, 400, 285, 480, 44, RGB(36, 24, 40), RGB(180, 50, 50), 235, 12);
+            DrawRoundedPanel(g_memDC, 400, 345, 480, 44, RGB(36, 24, 40), RGB(180, 50, 50), 235, 12);
 
-            SetTextColor(g_memDC, RGB(255, 255, 255));
-            TextOutA(g_memDC, 420, 298, "[R]   Restart Level from Spawn Point", 36);
-            TextOutA(g_memDC, 420, 348, "[M]   Return to Main Menu", 25);
+            SetTextColor(g_memDC, RGB(255, 240, 240));
+            TextOutA(g_memDC, 420, 296, "[R]   Restart Level from Spawn Point", 36);
+            TextOutA(g_memDC, 420, 356, "[M]   Return to Main Menu", 25);
 
             DeleteObject(hSubFont);
         }
@@ -1521,6 +1590,37 @@ void RenderGame(HDC hdc) {
 // ──────────────────────────────────────────────────────────────
 void HandleKeyDown(WPARAM wParam) {
     LogMessage("8. Keyboard controls functioning: Key down " + std::to_string(wParam));
+
+    if (g_game.state == GameState::SettingsModal) {
+        if (wParam == VK_UP) {
+            g_selectedSettingsRow = (g_selectedSettingsRow + 4) % 5;
+            return;
+        } else if (wParam == VK_DOWN) {
+            g_selectedSettingsRow = (g_selectedSettingsRow + 1) % 5;
+            return;
+        } else if (wParam == 'M') {
+            AssetManager::instance().setAudioEnabled(!AssetManager::instance().isAudioEnabled());
+            return;
+        } else if (wParam == '1') { g_selectedSettingsRow = 1; return; }
+        else if (wParam == '2') { g_selectedSettingsRow = 2; return; }
+        else if (wParam == '3') { g_selectedSettingsRow = 3; return; }
+        else if (wParam == '4') { g_selectedSettingsRow = 4; return; }
+        else if (wParam == VK_LEFT || wParam == 'A') {
+            if (g_selectedSettingsRow == 0) AssetManager::instance().setAudioEnabled(!AssetManager::instance().isAudioEnabled());
+            else if (g_selectedSettingsRow == 1) AssetManager::instance().setMasterVolume(AssetManager::instance().getMasterVolume() - 0.05f);
+            else if (g_selectedSettingsRow == 2) AssetManager::instance().setMusicVolume(AssetManager::instance().getMusicVolume() - 0.05f);
+            else if (g_selectedSettingsRow == 3) AssetManager::instance().setSFXVolume(AssetManager::instance().getSFXVolume() - 0.05f);
+            else if (g_selectedSettingsRow == 4) AssetManager::instance().setActionVolume(AssetManager::instance().getActionVolume() - 0.05f);
+            return;
+        } else if (wParam == VK_RIGHT || wParam == 'D') {
+            if (g_selectedSettingsRow == 0) AssetManager::instance().setAudioEnabled(!AssetManager::instance().isAudioEnabled());
+            else if (g_selectedSettingsRow == 1) AssetManager::instance().setMasterVolume(AssetManager::instance().getMasterVolume() + 0.05f);
+            else if (g_selectedSettingsRow == 2) AssetManager::instance().setMusicVolume(AssetManager::instance().getMusicVolume() + 0.05f);
+            else if (g_selectedSettingsRow == 3) AssetManager::instance().setSFXVolume(AssetManager::instance().getSFXVolume() + 0.05f);
+            else if (g_selectedSettingsRow == 4) AssetManager::instance().setActionVolume(AssetManager::instance().getActionVolume() + 0.05f);
+            return;
+        }
+    }
 
     if (wParam == 'A' || wParam == VK_LEFT) g_game.keyLeft = true;
     if (wParam == 'D' || wParam == VK_RIGHT) g_game.keyRight = true;
@@ -1563,7 +1663,7 @@ void HandleKeyDown(WPARAM wParam) {
             StartNewLevel();
             g_game.state = GameState::Playing;
         } else if (g_game.state == GameState::PerformanceDashboard || g_game.state == GameState::ControlsModal || g_game.state == GameState::SettingsModal) {
-            g_game.state = GameState::StartMenu;
+            g_game.state = (g_game.player.hp > 0 && g_game.levelNumber > 0) ? GameState::Playing : GameState::StartMenu;
         }
     }
 

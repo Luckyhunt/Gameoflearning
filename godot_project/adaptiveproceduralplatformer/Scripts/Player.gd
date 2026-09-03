@@ -136,11 +136,25 @@ func _perform_interact() -> void:
 func _physics_process(delta: float) -> void:
 	_timer += delta
 
-	# Invincibility frames
+	# Invincibility frames & visual feedback
 	if _invincible:
 		_invincible_timer -= delta
+		if _sprite != null:
+			(_sprite as Sprite2D).modulate.a = 0.5 + sin(_timer * 20.0) * 0.4
 		if _invincible_timer <= 0.0:
 			_invincible = false
+			if _sprite != null:
+				(_sprite as Sprite2D).modulate.a = 1.0
+	elif _sprite != null:
+		(_sprite as Sprite2D).modulate.a = 1.0
+
+	# Procedural idle breathing animation when character is not moving
+	if is_on_floor() and abs(velocity.x) < 5.0 and _sprite != null:
+		var breath := sin(_timer * 5.0) * 0.015
+		(_sprite as Sprite2D).scale.y = 0.35 + breath
+		(_sprite as Sprite2D).scale.x = (0.35 - breath * 0.5) * ( -1.0 if _facing_dir < 0.0 else 1.0 )
+	elif _sprite != null:
+		(_sprite as Sprite2D).scale = Vector2(0.35 * ( -1.0 if (_sprite as Sprite2D).flip_h else 1.0 ), 0.35)
 
 	# Gravity
 	if not is_on_floor():
@@ -235,12 +249,35 @@ var _tile_lookup: Dictionary = {}
 func set_tile_lookup(lookup: Dictionary) -> void:
 	_tile_lookup = lookup
 
-# ── Called by Main.gd when player overlaps hazard ────────────────
+# ── Called by Main.gd or Enemy when player overlaps hazard or enemy ──
 func on_hazard_contact() -> void:
+	if _invincible: return
+	_invincible = true
+	_invincible_timer = 1.0
 	_damage_taken += 10
+	velocity.y = -220.0
+	_lives -= 1
+	emit_signal("player_died", "hazard")
+	if _lives <= 0:
+		_trigger_death("hazard")
 
-func on_enemy_contact() -> void:
+func on_enemy_contact(enemy_pos: Vector2 = Vector2.ZERO) -> void:
+	if _invincible: return
+	_invincible = true
+	_invincible_timer = 1.0
 	_damage_taken += 15
+	
+	if enemy_pos != Vector2.ZERO:
+		var kb_dir := signf(global_position.x - enemy_pos.x)
+		if kb_dir == 0.0: kb_dir = -_facing_dir
+		velocity = Vector2(kb_dir * 240.0, -200.0)
+	else:
+		velocity = Vector2(-_facing_dir * 200.0, -180.0)
+
+	_lives -= 1
+	emit_signal("player_died", "enemy")
+	if _lives <= 0:
+		_trigger_death("enemy")
 
 func on_coin_collected(tile_pos: Vector2i) -> void:
 	_coins_collected += 1

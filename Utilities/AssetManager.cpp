@@ -141,22 +141,68 @@ bool AssetManager::drawSprite(HDC hdc, const std::string& key, int destX, int de
 }
 
 void AssetManager::playSound(SoundEffect effect) {
+    if (!m_audioEnabled) return;
+    bool isAction = (effect == SoundEffect::Jump || effect == SoundEffect::Hurt || effect == SoundEffect::Explosion);
+    float effectiveVol = m_masterVolume * m_sfxVolume * (isAction ? m_actionVolume : 1.0f);
+    effectiveVol = std::clamp(effectiveVol, 0.0f, 1.0f);
+    if (effectiveVol <= 0.001f) return;
+
     auto it = m_soundFiles.find(effect);
     if (it != m_soundFiles.end() && !it->second.empty()) {
+        WORD volWord = static_cast<WORD>(effectiveVol * 65535.0f);
+        DWORD waveVol = MAKELONG(volWord, volWord);
+        waveOutSetVolume(NULL, waveVol);
         PlaySoundA(it->second.c_str(), NULL, SND_FILENAME | SND_ASYNC | SND_NODEFAULT);
     }
 }
 
 void AssetManager::startMusic() {
-    if (m_musicFile.empty()) return;
+    if (m_musicFile.empty() || !m_audioEnabled) return;
     std::string cmdOpen = "open \"" + m_musicFile + "\" type mpegvideo alias bgm";
     mciSendStringA(cmdOpen.c_str(), NULL, 0, NULL);
+    
+    int mciVol = static_cast<int>(std::clamp(m_masterVolume * m_musicVolume, 0.0f, 1.0f) * 1000.0f);
+    std::string cmdVol = "setaudio bgm volume to " + std::to_string(mciVol);
+    mciSendStringA(cmdVol.c_str(), NULL, 0, NULL);
     mciSendStringA("play bgm repeat", NULL, 0, NULL);
 }
 
 void AssetManager::stopMusic() {
     mciSendStringA("stop bgm", NULL, 0, NULL);
     mciSendStringA("close bgm", NULL, 0, NULL);
+}
+
+void AssetManager::setMasterVolume(float vol) {
+    m_masterVolume = std::clamp(vol, 0.0f, 1.0f);
+    int mciVol = static_cast<int>(std::clamp(m_masterVolume * m_musicVolume, 0.0f, 1.0f) * 1000.0f);
+    std::string cmdVol = "setaudio bgm volume to " + std::to_string(mciVol);
+    mciSendStringA(cmdVol.c_str(), NULL, 0, NULL);
+}
+
+void AssetManager::setMusicVolume(float vol) {
+    m_musicVolume = std::clamp(vol, 0.0f, 1.0f);
+    int mciVol = static_cast<int>(std::clamp(m_masterVolume * m_musicVolume, 0.0f, 1.0f) * 1000.0f);
+    std::string cmdVol = "setaudio bgm volume to " + std::to_string(mciVol);
+    mciSendStringA(cmdVol.c_str(), NULL, 0, NULL);
+}
+
+void AssetManager::setSFXVolume(float vol) {
+    m_sfxVolume = std::clamp(vol, 0.0f, 1.0f);
+}
+
+void AssetManager::setActionVolume(float vol) {
+    m_actionVolume = std::clamp(vol, 0.0f, 1.0f);
+}
+
+void AssetManager::setAudioEnabled(bool enabled) {
+    m_audioEnabled = enabled;
+    if (!m_audioEnabled) {
+        mciSendStringA("setaudio bgm volume to 0", NULL, 0, NULL);
+    } else {
+        int mciVol = static_cast<int>(std::clamp(m_masterVolume * m_musicVolume, 0.0f, 1.0f) * 1000.0f);
+        std::string cmdVol = "setaudio bgm volume to " + std::to_string(mciVol);
+        mciSendStringA(cmdVol.c_str(), NULL, 0, NULL);
+    }
 }
 
 } // namespace APLG

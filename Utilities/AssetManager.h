@@ -32,6 +32,17 @@ public:
     void startMusic();
     void stopMusic();
 
+    void setMasterVolume(float vol);
+    float getMasterVolume() const { return m_masterVolume; }
+    void setMusicVolume(float vol);
+    float getMusicVolume() const { return m_musicVolume; }
+    void setSFXVolume(float vol);
+    float getSFXVolume() const { return m_sfxVolume; }
+    void setActionVolume(float vol);
+    float getActionVolume() const { return m_actionVolume; }
+    void setAudioEnabled(bool enabled);
+    bool isAudioEnabled() const { return m_audioEnabled; }
+
     bool isLoaded() const { return m_initialized; }
     std::string getAssetPath(const std::string& relativePath) const;
 
@@ -46,6 +57,12 @@ private:
     ULONG_PTR m_gdiplusToken = 0;
     bool m_initialized = false;
     std::string m_assetRoot;
+
+    float m_masterVolume = 1.0f;
+    float m_musicVolume = 0.8f;
+    float m_sfxVolume = 0.8f;
+    float m_actionVolume = 0.9f;
+    bool m_audioEnabled = true;
 
     std::unordered_map<std::string, std::unique_ptr<Gdiplus::Bitmap>> m_textures;
     std::unordered_map<SoundEffect, std::string> m_soundFiles;

@@ -48,9 +48,10 @@ func _create_parallax_layers() -> void:
 		add_child(layer)
 		_layers.append(layer)
 		
-		# Calculate parallax speed (closer layers move slower)
-		var speed := 1.0 - (float(i) / float(NUM_LAYERS))
-		layer.motion_scale = Vector2(speed, speed * 0.5)
+		# Calculate parallax speed (closer layers move slower relative to camera)
+		var speed := 0.15 + (float(i) * 0.2)
+		layer.motion_scale = Vector2(speed, speed * 0.4)
+		layer.motion_mirroring = Vector2(1024, 0)
 		_layer_speeds.append(speed)
 		
 		# Create background texture for this layer

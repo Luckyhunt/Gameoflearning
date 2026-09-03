@@ -265,7 +265,7 @@ public:
         screenWidth = w;
         screenHeight = h;
         uiScale = std::min(static_cast<float>(w) / 1280.0f, static_cast<float>(h) / 720.0f);
-        uiScale = std::max(0.75f, uiScale);
+        uiScale = std::max(1.0f, uiScale);
     }
 
     void SetWindowMode(WindowMode mode) {

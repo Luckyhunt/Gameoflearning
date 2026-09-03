@@ -198,6 +198,8 @@ std::string SaveSystem::serializeSettings(const SettingsData& settings) {
     json["masterVolume"] = JsonValue(settings.masterVolume);
     json["musicVolume"] = JsonValue(settings.musicVolume);
     json["sfxVolume"] = JsonValue(settings.sfxVolume);
+    json["actionVolume"] = JsonValue(settings.actionVolume);
+    json["audioEnabled"] = JsonValue(settings.audioEnabled);
     json["fullscreen"] = JsonValue(settings.fullscreen);
     json["resolutionWidth"] = JsonValue(settings.resolutionWidth);
     json["resolutionHeight"] = JsonValue(settings.resolutionHeight);
@@ -212,15 +214,17 @@ SettingsData SaveSystem::deserializeSettings(const std::string& json) {
     SettingsData settings;
     JsonValue parsed = JsonParser::parse(json);
     
-    settings.masterVolume = parsed["masterVolume"].getNumber();
-    settings.musicVolume = parsed["musicVolume"].getNumber();
-    settings.sfxVolume = parsed["sfxVolume"].getNumber();
-    settings.fullscreen = parsed["fullscreen"].getBool();
-    settings.resolutionWidth = static_cast<int32>(parsed["resolutionWidth"].getNumber());
-    settings.resolutionHeight = static_cast<int32>(parsed["resolutionHeight"].getNumber());
-    settings.vsync = parsed["vsync"].getBool();
-    settings.showFPS = parsed["showFPS"].getBool();
-    settings.defaultDifficulty = static_cast<DifficultyLevel>(static_cast<int>(parsed["defaultDifficulty"].getNumber()));
+    if (parsed.hasKey("masterVolume")) settings.masterVolume = static_cast<float32>(parsed["masterVolume"].getNumber());
+    if (parsed.hasKey("musicVolume")) settings.musicVolume = static_cast<float32>(parsed["musicVolume"].getNumber());
+    if (parsed.hasKey("sfxVolume")) settings.sfxVolume = static_cast<float32>(parsed["sfxVolume"].getNumber());
+    if (parsed.hasKey("actionVolume")) settings.actionVolume = static_cast<float32>(parsed["actionVolume"].getNumber());
+    if (parsed.hasKey("audioEnabled")) settings.audioEnabled = parsed["audioEnabled"].getBool();
+    if (parsed.hasKey("fullscreen")) settings.fullscreen = parsed["fullscreen"].getBool();
+    if (parsed.hasKey("resolutionWidth")) settings.resolutionWidth = static_cast<int32>(parsed["resolutionWidth"].getNumber());
+    if (parsed.hasKey("resolutionHeight")) settings.resolutionHeight = static_cast<int32>(parsed["resolutionHeight"].getNumber());
+    if (parsed.hasKey("vsync")) settings.vsync = parsed["vsync"].getBool();
+    if (parsed.hasKey("showFPS")) settings.showFPS = parsed["showFPS"].getBool();
+    if (parsed.hasKey("defaultDifficulty")) settings.defaultDifficulty = static_cast<DifficultyLevel>(static_cast<int>(parsed["defaultDifficulty"].getNumber()));
     
     return settings;
 }

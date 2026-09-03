@@ -173,10 +173,13 @@ func _shoot_projectile() -> void:
 	tween.tween_property(proj, "global_position", proj.global_position + pdir * 280.0, 1.2)
 
 func _process(_delta: float) -> void:
-	if not _alive or not _player: return
+	if not _alive or not _player or not is_instance_valid(_player): return
 	var dist := global_position.distance_to(_player.global_position)
-	if dist < 22.0:
-		_player.on_enemy_contact()
+	if dist < 24.0:
+		if _player.has_method("is_invincible") and _player.call("is_invincible"):
+			return
+		if _player.has_method("on_enemy_contact"):
+			_player.call("on_enemy_contact", global_position)
 
 func kill() -> void:
 	_alive = false
