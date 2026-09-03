@@ -8,7 +8,6 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
-*.cmake
 
 # Compiled files
 *.o
@@ -38,17 +37,21 @@ export_presets.cfg
 Thumbs.db
 desktop.ini
 
-# Generated files
+# Generated files & logs
 *.generated.h
 *.generated.cpp
-
-# Test outputs
-Tests/output/
-Tests/results/
-
-# Logs
 *.log
 logs/
+standalone_game.log
+
+# Metrics & Test outputs
+metrics.json
+analytics_test.csv
+test_output.csv
+stress_test_results.txt
+saves/
+Tests/output/
+Tests/results/
 
 # Temporary files
 tmp/

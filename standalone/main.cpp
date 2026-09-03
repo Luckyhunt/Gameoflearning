@@ -32,6 +32,7 @@
 #include "../Difficulty/IDifficultyManager.h"
 #include "../AI/IPlayerModel.h"
 #include "../Validation/LevelValidator.h"
+#include "../Utilities/AssetManager.h"
 #include "UIManager.h"
 
 using namespace APLG;
@@ -557,6 +558,7 @@ void UpdateGame(float dt) {
         p.jumpPendingLanding = true;
         p.coyoteFrames = 0;
         g_game.keyJumpPressed = false;
+        AssetManager::instance().playSound(SoundEffect::Jump);
         SpawnParticles(p.position, 6, RGB(255, 255, 255), 80.0f);
     }
 
@@ -583,6 +585,9 @@ void UpdateGame(float dt) {
                             enemy.alive = false;
                             p.enemiesKilled++;
                             g_game.totalEnemiesEliminated++;
+                            AssetManager::instance().playSound(SoundEffect::Explosion);
+                        } else {
+                            AssetManager::instance().playSound(SoundEffect::Hurt);
                         }
                     }
                 }
@@ -1110,64 +1115,52 @@ void RenderGame(HDC hdc) {
                 int sy = (int)screenPos.y;
 
                 if (type == TileType::Solid) {
-                    // Red Brick School Building Wall
-                    HBRUSH brickBrush = CreateSolidBrush(RGB(145, 55, 45));
-                    RECT r = { sx, sy, sx + TILE_SIZE, sy + TILE_SIZE };
-                    FillRect(g_memDC, &r, brickBrush);
-                    DeleteObject(brickBrush);
-
-                    HPEN mortarPen = CreatePen(PS_SOLID, 1, RGB(100, 35, 30));
-                    SelectObject(g_memDC, mortarPen);
-                    MoveToEx(g_memDC, sx, sy + TILE_SIZE / 2, NULL); LineTo(g_memDC, sx + TILE_SIZE, sy + TILE_SIZE / 2);
-                    MoveToEx(g_memDC, sx, sy + TILE_SIZE - 1, NULL); LineTo(g_memDC, sx + TILE_SIZE, sy + TILE_SIZE - 1);
-                    DeleteObject(mortarPen);
+                    if (!AssetManager::instance().drawSprite(g_memDC, "world_tileset", sx, sy, (int)TILE_SIZE, (int)TILE_SIZE, 0, 0, 16, 16)) {
+                        HBRUSH brickBrush = CreateSolidBrush(RGB(145, 55, 45));
+                        RECT r = { sx, sy, sx + (int)TILE_SIZE, sy + (int)TILE_SIZE };
+                        FillRect(g_memDC, &r, brickBrush);
+                        DeleteObject(brickBrush);
+                    }
                 }
                 else if (type == TileType::Platform) {
-                    // Campus Terrace Platform / Desk Ledge with Lush Green Grass Trim
-                    HBRUSH deskBrush = CreateSolidBrush(RGB(165, 105, 45));
-                    RECT r = { sx, sy + 4, sx + TILE_SIZE, sy + 12 };
-                    FillRect(g_memDC, &r, deskBrush);
-                    DeleteObject(deskBrush);
-
-                    HBRUSH grassBrush = CreateSolidBrush(RGB(60, 185, 75)); // Vibrant Campus Grass Trim
-                    RECT gr = { sx, sy, sx + TILE_SIZE, sy + 4 };
-                    FillRect(g_memDC, &gr, grassBrush);
-                    DeleteObject(grassBrush);
-
-                    HBRUSH legBrush = CreateSolidBrush(RGB(80, 80, 90));
-                    RECT l1 = { sx + 4, sy + 12, sx + 8, sy + TILE_SIZE };
-                    RECT l2 = { sx + TILE_SIZE - 8, sy + 12, sx + TILE_SIZE - 4, sy + TILE_SIZE };
-                    FillRect(g_memDC, &l1, legBrush);
-                    FillRect(g_memDC, &l2, legBrush);
-                    DeleteObject(legBrush);
+                    if (!AssetManager::instance().drawSprite(g_memDC, "platforms", sx, sy, (int)TILE_SIZE, (int)TILE_SIZE, 0, 0, 16, 16)) {
+                        HBRUSH deskBrush = CreateSolidBrush(RGB(165, 105, 45));
+                        RECT r = { sx, sy + 4, sx + (int)TILE_SIZE, sy + 12 };
+                        FillRect(g_memDC, &r, deskBrush);
+                        DeleteObject(deskBrush);
+                    }
                 }
                 else if (type == TileType::IcePlatform) {
-                    // Polished Marble Corridor Floor
-                    HBRUSH marbleBrush = CreateSolidBrush(RGB(210, 235, 255));
-                    RECT r = { sx, sy, sx + TILE_SIZE, sy + TILE_SIZE };
-                    FillRect(g_memDC, &r, marbleBrush);
-                    DeleteObject(marbleBrush);
+                    if (!AssetManager::instance().drawSprite(g_memDC, "platforms", sx, sy, (int)TILE_SIZE, (int)TILE_SIZE, 16, 0, 16, 16)) {
+                        HBRUSH marbleBrush = CreateSolidBrush(RGB(210, 235, 255));
+                        RECT r = { sx, sy, sx + (int)TILE_SIZE, sy + (int)TILE_SIZE };
+                        FillRect(g_memDC, &r, marbleBrush);
+                        DeleteObject(marbleBrush);
+                    }
                 }
                 else if (type == TileType::BouncePad) {
-                    // Sports / Playground Trampoline Mat
-                    HBRUSH matBrush = CreateSolidBrush(RGB(40, 190, 90));
-                    RECT r = { sx, sy + 8, sx + TILE_SIZE, sy + TILE_SIZE };
-                    FillRect(g_memDC, &r, matBrush);
-                    DeleteObject(matBrush);
+                    if (!AssetManager::instance().drawSprite(g_memDC, "platforms", sx, sy, (int)TILE_SIZE, (int)TILE_SIZE, 32, 0, 16, 16)) {
+                        HBRUSH matBrush = CreateSolidBrush(RGB(40, 190, 90));
+                        RECT r = { sx, sy + 8, sx + (int)TILE_SIZE, sy + (int)TILE_SIZE };
+                        FillRect(g_memDC, &r, matBrush);
+                        DeleteObject(matBrush);
+                    }
                 }
                 else if (type == TileType::Spawn) {
-                    // Campus Main Gate Archway
-                    HBRUSH gateBrush = CreateSolidBrush(RGB(40, 150, 230));
-                    RECT r = { sx, sy, sx + TILE_SIZE, sy + TILE_SIZE };
-                    FillRect(g_memDC, &r, gateBrush);
-                    DeleteObject(gateBrush);
+                    if (!AssetManager::instance().drawSprite(g_memDC, "world_tileset", sx, sy, (int)TILE_SIZE, (int)TILE_SIZE, 64, 0, 16, 16)) {
+                        HBRUSH gateBrush = CreateSolidBrush(RGB(40, 150, 230));
+                        RECT r = { sx, sy, sx + (int)TILE_SIZE, sy + (int)TILE_SIZE };
+                        FillRect(g_memDC, &r, gateBrush);
+                        DeleteObject(gateBrush);
+                    }
                 }
                 else if (type == TileType::Exit) {
-                    // Principal's Office Door / Terrace Exit
-                    HBRUSH doorBrush = CreateSolidBrush(RGB(200, 90, 240));
-                    RECT r = { sx, sy, sx + TILE_SIZE, sy + TILE_SIZE };
-                    FillRect(g_memDC, &r, doorBrush);
-                    DeleteObject(doorBrush);
+                    if (!AssetManager::instance().drawSprite(g_memDC, "world_tileset", sx, sy, (int)TILE_SIZE, (int)TILE_SIZE, 80, 0, 16, 16)) {
+                        HBRUSH doorBrush = CreateSolidBrush(RGB(200, 90, 240));
+                        RECT r = { sx, sy, sx + (int)TILE_SIZE, sy + (int)TILE_SIZE };
+                        FillRect(g_memDC, &r, doorBrush);
+                        DeleteObject(doorBrush);
+                    }
                 }
             }
         }
@@ -1179,70 +1172,26 @@ void RenderGame(HDC hdc) {
             int ex = (int)screenPos.x;
             int ey = (int)screenPos.y;
 
+            bool flipX = (enemy.direction < 0.0f);
             if (enemy.type == EnemyType::Patrol) {
-                // Male Faculty Teacher (Collared Shirt, Eyeglasses, Pointer Stick)
-                HBRUSH headBrush = CreateSolidBrush(RGB(240, 195, 160));
-                RECT headRect = { ex - 6, ey - 22, ex + 6, ey - 12 };
-                FillRect(g_memDC, &headRect, headBrush);
-                DeleteObject(headBrush);
-
-                HBRUSH hairBrush = CreateSolidBrush(RGB(50, 40, 30));
-                RECT hairRect = { ex - 6, ey - 23, ex + 6, ey - 18 };
-                FillRect(g_memDC, &hairRect, hairBrush);
-                DeleteObject(hairBrush);
-
-                HBRUSH shirtBrush = CreateSolidBrush(RGB(65, 130, 210));
-                RECT shirtRect = { ex - 11, ey - 12, ex + 11, ey + 4 };
-                FillRect(g_memDC, &shirtRect, shirtBrush);
-                DeleteObject(shirtBrush);
-
-                HBRUSH pantBrush = CreateSolidBrush(RGB(35, 45, 65));
-                RECT pantRect = { ex - 9, ey + 4, ex + 9, ey + 15 };
-                FillRect(g_memDC, &pantRect, pantBrush);
-                DeleteObject(pantBrush);
-            }
-            else if (enemy.type == EnemyType::Chase) {
-                // Female Faculty Teacher (Saree, ID Lanyard Badge)
-                HBRUSH headBrush = CreateSolidBrush(RGB(235, 185, 150));
-                RECT headRect = { ex - 6, ey - 22, ex + 6, ey - 12 };
-                FillRect(g_memDC, &headRect, headBrush);
-                DeleteObject(headBrush);
-
-                HBRUSH sareeBrush = CreateSolidBrush(RGB(205, 40, 85));
-                RECT sareeRect = { ex - 12, ey - 12, ex + 12, ey + 15 };
-                FillRect(g_memDC, &sareeRect, sareeBrush);
-                DeleteObject(sareeBrush);
-
-                // ID Lanyard Badge
-                HBRUSH badgeBrush = CreateSolidBrush(RGB(255, 215, 0));
-                RECT badgeRect = { ex - 3, ey - 4, ex + 3, ey + 2 };
-                FillRect(g_memDC, &badgeRect, badgeBrush);
-                DeleteObject(badgeBrush);
+                if (!AssetManager::instance().drawSprite(g_memDC, "slime_green", ex - 16, ey - 16, 32, 32, 0, 0, 24, 24, flipX)) {
+                    HBRUSH headBrush = CreateSolidBrush(RGB(240, 195, 160));
+                    RECT headRect = { ex - 6, ey - 22, ex + 6, ey - 12 };
+                    FillRect(g_memDC, &headRect, headBrush);
+                    DeleteObject(headBrush);
+                    HBRUSH shirtBrush = CreateSolidBrush(RGB(65, 130, 210));
+                    RECT shirtRect = { ex - 11, ey - 12, ex + 11, ey + 4 };
+                    FillRect(g_memDC, &shirtRect, shirtBrush);
+                    DeleteObject(shirtBrush);
+                }
             }
             else {
-                // Sci-Fi Extraterrestrial Alien (Big Oval Head, Glossy Oval Eyes, Lab Coat)
-                HBRUSH skinBrush = CreateSolidBrush(RGB(65, 220, 115));
-                RECT headRect = { ex - 9, ey - 24, ex + 9, ey - 10 };
-                FillRect(g_memDC, &headRect, skinBrush);
-
-                HBRUSH coatBrush = CreateSolidBrush(RGB(245, 245, 250));
-                RECT coatRect = { ex - 11, ey - 10, ex + 11, ey + 10 };
-                FillRect(g_memDC, &coatRect, coatBrush);
-                DeleteObject(coatBrush);
-
-                HBRUSH legBrush = CreateSolidBrush(RGB(40, 160, 90));
-                RECT legRect = { ex - 8, ey + 10, ex + 8, ey + 15 };
-                FillRect(g_memDC, &legRect, legBrush);
-                DeleteObject(legBrush);
-
-                // Glossy Black Extraterrestrial Eyes
-                HBRUSH eyeBrush = CreateSolidBrush(RGB(15, 20, 30));
-                RECT eye1 = { ex - 7, ey - 20, ex - 1, ey - 13 };
-                RECT eye2 = { ex + 1, ey - 20, ex + 7, ey - 13 };
-                FillRect(g_memDC, &eye1, eyeBrush);
-                FillRect(g_memDC, &eye2, eyeBrush);
-                DeleteObject(eyeBrush);
-                DeleteObject(skinBrush);
+                if (!AssetManager::instance().drawSprite(g_memDC, "slime_purple", ex - 16, ey - 16, 32, 32, 0, 0, 24, 24, flipX)) {
+                    HBRUSH sareeBrush = CreateSolidBrush(RGB(205, 40, 85));
+                    RECT sareeRect = { ex - 12, ey - 12, ex + 12, ey + 15 };
+                    FillRect(g_memDC, &sareeRect, sareeBrush);
+                    DeleteObject(sareeBrush);
+                }
             }
         }
 
@@ -1265,43 +1214,40 @@ void RenderGame(HDC hdc) {
             DeleteObject(pBrush);
         }
 
-        // Render Student Player Figure (Head/Hair, Uniform Collar, Tie, Trousers, Backpack)
+        // Render Knight / Student Player Figure
         Vec2 pPos = WorldToScreen(g_game.player.position);
         int px = (int)pPos.x;
         int py = (int)pPos.y;
+        bool pFlip = (g_game.player.facingDir < 0.0f);
 
-        // Head & Hair
-        HBRUSH skinBrush = CreateSolidBrush(RGB(240, 195, 160));
-        RECT headRect = { px - 6, py - 24, px + 6, py - 14 };
-        FillRect(g_memDC, &headRect, skinBrush);
-        DeleteObject(skinBrush);
+        int animRow = 0;
+        if (!g_game.player.isGrounded) animRow = 3;
+        else if (std::abs(g_game.player.velocity.x) > 10.0f) animRow = 2;
 
-        HBRUSH hairBrush = CreateSolidBrush(RGB(50, 35, 25));
-        RECT hairRect = { px - 6, py - 25, px + 6, py - 20 };
-        FillRect(g_memDC, &hairRect, hairBrush);
-        DeleteObject(hairBrush);
+        static float playerAnimTimer = 0.0f;
+        playerAnimTimer += 0.016f;
+        int animFrame = (int)(playerAnimTimer * 10.0f) % 8;
 
-        // School Uniform Shirt & Maroon Tie
-        HBRUSH shirtBrush = CreateSolidBrush((g_game.player.invincibleTimer > 0.0f) ? RGB(255, 255, 140) : RGB(245, 245, 250));
-        RECT shirtRect = { px - 10, py - 14, px + 10, py + 2 };
-        FillRect(g_memDC, &shirtRect, shirtBrush);
-        DeleteObject(shirtBrush);
+        if (!AssetManager::instance().drawSprite(g_memDC, "knight", px - 24, py - 24, 48, 48, animFrame * 32, animRow * 32, 32, 32, pFlip)) {
+            // Fallback GDI shape rendering
+            HBRUSH skinBrush = CreateSolidBrush(RGB(240, 195, 160));
+            RECT headRect = { px - 6, py - 24, px + 6, py - 14 };
+            FillRect(g_memDC, &headRect, skinBrush);
+            DeleteObject(skinBrush);
 
-        HBRUSH tieBrush = CreateSolidBrush(RGB(170, 25, 35));
-        RECT tieRect = { px - 2, py - 10, px + 2, py - 1 };
-        FillRect(g_memDC, &tieRect, tieBrush);
-        DeleteObject(tieBrush);
+            HBRUSH shirtBrush = CreateSolidBrush((g_game.player.invincibleTimer > 0.0f) ? RGB(255, 255, 140) : RGB(245, 245, 250));
+            RECT shirtRect = { px - 10, py - 14, px + 10, py + 2 };
+            FillRect(g_memDC, &shirtRect, shirtBrush);
+            DeleteObject(shirtBrush);
 
-        HBRUSH pantBrush = CreateSolidBrush(RGB(25, 45, 90));
-        RECT pantRect = { px - 9, py + 2, px + 9, py + 15 };
-        FillRect(g_memDC, &pantRect, pantBrush);
-        DeleteObject(pantBrush);
-
-        // Backpack on Student
-        HBRUSH bagBrush = CreateSolidBrush(RGB(180, 70, 30));
-        RECT bagRect = { px - (int)g_game.player.facingDir * 13 - 3, py - 8, px - (int)g_game.player.facingDir * 13 + 3, py + 6 };
-        FillRect(g_memDC, &bagRect, bagBrush);
-        DeleteObject(bagBrush);
+            HBRUSH pantBrush = CreateSolidBrush(RGB(25, 45, 90));
+            RECT pantRect = { px - 9, py + 2, px + 9, py + 15 };
+            FillRect(g_memDC, &pantRect, pantBrush);
+            HBRUSH bagBrush = CreateSolidBrush(RGB(180, 70, 30));
+            RECT bagRect = { px - (int)g_game.player.facingDir * 13 - 3, py - 8, px - (int)g_game.player.facingDir * 13 + 3, py + 6 };
+            FillRect(g_memDC, &bagRect, bagBrush);
+            DeleteObject(bagBrush);
+        }
 
         // Full 360 Circular Radial Attack Shockwave Ring (No 3/4 pie wedge!)
         if (g_game.player.meleeSwingTimer > 0.0f || g_game.player.specialCooldown > 2.6f) {
@@ -1748,7 +1694,9 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     try {
         LogMessage("Initializing Level Engine & Generator...");
+        AssetManager::instance().initialize();
         InitGame();
+        AssetManager::instance().startMusic();
         LogMessage("6. Player visible & initialized.");
         LogMessage("7. Level visible & procedural terrain generated.");
     } catch (const std::exception& e) {

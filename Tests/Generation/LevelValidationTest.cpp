@@ -1,7 +1,6 @@
 #include "../../LevelEngine/LevelGenerationPipeline.h"
 #include "../../Validation/LevelValidator.h"
 #include "../../Validation/PathFinder.h"
-#include "../../Generation/LevelValidator.h"
 #include <iostream>
 
 using namespace APLG;

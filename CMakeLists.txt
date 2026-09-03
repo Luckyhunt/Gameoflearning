@@ -225,7 +225,7 @@ target_link_libraries(StandaloneApp
 )
 
 if(WIN32)
-    target_link_libraries(StandaloneApp user32 gdi32 winmm msimg32)
+    target_link_libraries(StandaloneApp user32 gdi32 winmm msimg32 gdiplus)
     set_target_properties(StandaloneApp PROPERTIES
         WIN32_EXECUTABLE TRUE
         MSVC_RUNTIME_LIBRARY "MultiThreaded"
