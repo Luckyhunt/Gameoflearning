@@ -993,7 +993,7 @@ void RenderGame(HDC hdc) {
         HFONT hTitleFont = CreateFontA(36, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Trebuchet MS");
         SelectObject(g_memDC, hTitleFont);
         SetTextColor(g_memDC, RGB(255, 215, 0));
-        TextOutA(g_memDC, 330, 130, "STUDENT VS TEACHERS & ALIENS", 28);
+        TextOutA(g_memDC, 330, 130, "C++ Demo", 28);
         DeleteObject(hTitleFont);
 
         HFONT hSubFont = CreateFontA(18, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Arial");
