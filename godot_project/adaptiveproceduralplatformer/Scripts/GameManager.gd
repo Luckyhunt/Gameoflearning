@@ -9,6 +9,7 @@
 ## ─────────────────────────────────────────────────────────────────
 
 extends Node
+class_name GameManager
 
 signal request_next_level
 signal request_restart

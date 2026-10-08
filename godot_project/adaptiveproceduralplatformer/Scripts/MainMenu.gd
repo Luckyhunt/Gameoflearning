@@ -12,6 +12,8 @@
 extends Control
 class_name MainMenu
 
+const GameManagerScript = preload("res://Scripts/GameManager.gd")
+
 signal play_pressed
 signal difficulty_pressed
 signal settings_pressed
@@ -434,14 +436,14 @@ func _on_button_pressed(index: int) -> void:
 	
 	match index:
 		0: 
-			GameManager.current_difficulty = _difficulties[_difficulty_idx]
+			GameManagerScript.current_difficulty = _difficulties[_difficulty_idx]
 			emit_signal("play_pressed")
 			get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 		1: 
 			_difficulty_idx = (_difficulty_idx + 1) % _difficulties.size()
 			var selected_diff := _difficulties[_difficulty_idx]
 			btn_difficulty.text = "DIFFICULTY: " + selected_diff
-			GameManager.current_difficulty = selected_diff
+			GameManagerScript.current_difficulty = selected_diff
 			emit_signal("difficulty_pressed")
 		2: 
 			if has_node("/root/AudioManager"):

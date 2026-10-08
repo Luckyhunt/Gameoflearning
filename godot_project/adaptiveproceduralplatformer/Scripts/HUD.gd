@@ -219,9 +219,9 @@ func _refresh() -> void:
 
 	# 4 Level Difficulty Classification: BEGINNER, MODERATE, ADVANCED, EXPERT
 	var diff_str := "BEGINNER"
-	var gm := get_node_or_null("/root/GameManager")
-	if gm and "current_difficulty" in gm and str(gm.get("current_difficulty")) != "":
-		diff_str = str(gm.get("current_difficulty")).to_upper()
+	var gm_script = load("res://Scripts/GameManager.gd")
+	if gm_script and "current_difficulty" in gm_script and str(gm_script.get("current_difficulty")) != "":
+		diff_str = str(gm_script.get("current_difficulty")).to_upper()
 	elif bridge:
 		var d_lvl: int = bridge.get_difficulty_level()
 		match d_lvl:

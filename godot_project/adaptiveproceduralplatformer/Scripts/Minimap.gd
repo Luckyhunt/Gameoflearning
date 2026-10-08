@@ -87,6 +87,8 @@ func _draw() -> void:
 						var ry := offset_y + y * scale
 						draw_rect(Rect2(rx, ry, maxf(scale, 1.0), maxf(scale, 1.0)), plat_color, true)
 	
+	var pulse_glow := (sin(_pulse_timer * 1.5) + 1.0) * 0.5
+
 	# Draw Enemy Radar Blips
 	var enemies := get_tree().get_nodes_in_group("enemies")
 	for e in enemies:
@@ -96,7 +98,6 @@ func _draw() -> void:
 			var ey_tile := e_pos.y / float(tile_size)
 			var ex := offset_x + ex_tile * scale
 			var ey := offset_y + ey_tile * scale
-			var pulse_glow := (sin(_pulse_timer * 1.5) + 1.0) * 0.5
 			var enemy_color := Color(1.0, 0.25, 0.35, 0.8 + pulse_glow * 0.2)
 			draw_circle(Vector2(ex, ey), maxf(scale * 0.85, 3.2), enemy_color)
 			draw_circle(Vector2(ex, ey), maxf(scale * 0.35, 1.5), Color(1.0, 0.9, 0.9))
