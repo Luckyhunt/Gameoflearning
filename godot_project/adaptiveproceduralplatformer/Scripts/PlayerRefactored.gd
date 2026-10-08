@@ -22,10 +22,25 @@ signal request_pause
 @onready var _anim: AnimationPlayer = $AnimationPlayer if has_node("AnimationPlayer") else null
 @onready var _camera: CameraController = $Camera2D if has_node("Camera2D") else null
 
+# Knight Sprite Sheet Animation
+var _anim_timer: float = 0.0
+var _anim_frame_idx: int = 0
+const IDLE_FRAMES: Array[int] = [0, 1, 2, 3]
+const RUN_FRAMES: Array[int] = [16, 17, 18, 19, 20, 21, 22, 23]
+const JUMP_FRAME: int = 24
+const FALL_FRAME: int = 25
+const HIT_FRAMES: Array[int] = [48, 49, 50, 51]
+
 # Visual manager reference
 var _visual_manager: Node = null
 
 func _ready() -> void:
+	# Hide any debug collision overlays
+	var cs := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if cs: cs.debug_color = Color(0, 0, 0, 0)
+	var acs := get_node_or_null("PlayerInteraction/PlayerInteractionCollision") as CollisionShape2D
+	if acs: acs.debug_color = Color(0, 0, 0, 0)
+
 	# Initialize components
 	_movement.setup(self, _tile_service)
 	_interaction.setup(self, _tile_service)
@@ -63,9 +78,10 @@ func _physics_process(delta: float) -> void:
 	_movement.update(delta)
 	_health.update(delta)
 	_analytics.update(delta)
+	_update_knight_animation(delta)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
+	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("pause"):
 		emit_signal("request_pause")
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_R:
@@ -76,12 +92,10 @@ func _on_movement_state_changed(state: PlayerEnums.MovementState) -> void:
 	# Update animation based on movement state
 	_update_animation(state)
 
-func _on_ground_state_changed(state: PlayerEnums.GroundState) -> void:
-	# Handle ground state changes (ice, bounce, etc.)
+func _on_ground_state_changed(_state: PlayerEnums.GroundState) -> void:
 	pass
 
-func _on_health_changed(lives: int) -> void:
-	# Update UI or other systems that need health info
+func _on_health_changed(_lives: int) -> void:
 	pass
 
 func _on_death_triggered(death_type: PlayerEnums.DeathType) -> void:
@@ -91,6 +105,12 @@ func _on_death_triggered(death_type: PlayerEnums.DeathType) -> void:
 		PlayerEnums.DeathType.FALL: type_str = "fall"
 		PlayerEnums.DeathType.HAZARD: type_str = "hazard"
 		PlayerEnums.DeathType.ENEMY: type_str = "enemy"
+	if has_node("/root/AudioManager"):
+		var audio = get_node("/root/AudioManager")
+		if _health and _health.get_lives() <= 0:
+			audio.play_sound("explosion")
+		else:
+			audio.play_sound("hurt")
 	emit_signal("player_died", type_str)
 	_movement.stop()
 
@@ -101,25 +121,31 @@ func _on_respawned(spawn_pos: Vector2) -> void:
 		_camera.reset_camera_to_target()
 
 func _on_coin_collected(tile_pos: Vector2i) -> void:
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sound("coin")
 	_analytics.record_coin()
 	emit_signal("coin_collected", tile_pos)
 
-func _on_checkpoint_reached(tile_pos: Vector2i, world_pos: Vector2) -> void:
-	_health.set_checkpoint(world_pos)
-	_analytics.record_checkpoint_use()
-	emit_signal("checkpoint_reached", tile_pos)
+func _on_checkpoint_reached(_tile_pos: Vector2i, _world_pos: Vector2) -> void:
+	pass
 
 func _on_exit_reached() -> void:
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sound("power_up")
 	var stats: Dictionary = _analytics.get_level_stats()
 	emit_signal("level_complete", stats)
 
 func _on_hazard_contact() -> void:
-	pass
+	if _health:
+		_health.take_damage(PlayerEnums.DeathType.FALL)
 
 func _on_enemy_contact() -> void:
-	pass
+	if _health:
+		_health.take_damage(PlayerEnums.DeathType.ENEMY)
 
 func _on_jump_attempted() -> void:
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sound("jump")
 	_analytics.record_jump_attempt()
 	# Spawn jump particles
 	if _visual_manager:
@@ -135,20 +161,50 @@ func _on_jump_landed() -> void:
 
 # ── Animation ───────────────────────────────────────────────────────
 func _update_animation(state: PlayerEnums.MovementState) -> void:
-	if not _anim:
+	if _anim:
+		match state:
+			PlayerEnums.MovementState.IDLE:
+				_anim.play("idle")
+			PlayerEnums.MovementState.RUN:
+				_anim.play("run")
+			PlayerEnums.MovementState.JUMP:
+				_anim.play("jump")
+			PlayerEnums.MovementState.FALL:
+				_anim.play("fall")
+			PlayerEnums.MovementState.DEAD:
+				_anim.play("death")
+
+func _update_knight_animation(delta: float) -> void:
+	if not _sprite or not (_sprite is Sprite2D):
 		return
+	var spr := _sprite as Sprite2D
 	
-	match state:
+	# Invincibility flicker
+	if _health and _health.is_invincible():
+		spr.modulate.a = 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.02)
+	else:
+		spr.modulate.a = 1.0
+
+	var m_state: PlayerEnums.MovementState = _movement.get_state() if _movement else PlayerEnums.MovementState.IDLE
+	_anim_timer += delta
+
+	match m_state:
 		PlayerEnums.MovementState.IDLE:
-			_anim.play("idle")
+			if _anim_timer >= 0.15:
+				_anim_timer = 0.0
+				_anim_frame_idx = (_anim_frame_idx + 1) % IDLE_FRAMES.size()
+			spr.frame = IDLE_FRAMES[_anim_frame_idx % IDLE_FRAMES.size()]
 		PlayerEnums.MovementState.RUN:
-			_anim.play("run")
+			if _anim_timer >= 0.08:
+				_anim_timer = 0.0
+				_anim_frame_idx = (_anim_frame_idx + 1) % RUN_FRAMES.size()
+			spr.frame = RUN_FRAMES[_anim_frame_idx % RUN_FRAMES.size()]
 		PlayerEnums.MovementState.JUMP:
-			_anim.play("jump")
+			spr.frame = JUMP_FRAME
 		PlayerEnums.MovementState.FALL:
-			_anim.play("fall")
+			spr.frame = FALL_FRAME
 		PlayerEnums.MovementState.DEAD:
-			_anim.play("death")
+			spr.frame = 48
 
 # ── Public accessors (for Main.gd compatibility) ─────────────────────
 func get_lives() -> int:
@@ -187,7 +243,7 @@ func set_camera_bounds(bounds: Rect2) -> void:
 func on_hazard_contact() -> void:
 	_on_hazard_contact()
 
-func on_enemy_contact() -> void:
+func on_enemy_contact(enemy_pos: Variant = null) -> void:
 	_on_enemy_contact()
 
 func on_coin_collected(tile_pos: Vector2i) -> void:

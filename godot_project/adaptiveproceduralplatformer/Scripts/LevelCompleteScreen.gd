@@ -45,24 +45,29 @@ func _ready() -> void:
 	btn_retry.pressed.connect(_on_retry_pressed)
 	btn_main_menu.pressed.connect(_on_main_menu_pressed)
 	
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").hook_buttons(self)
+
 	# Create star textures
 	_create_star_textures()
 	
 	# Start animations
 	_animate_in()
 
-func set_statistics(difficulty: String, coins: int, deaths: int, time: float, accuracy: float, secrets: int) -> void:
+func set_statistics(difficulty: String, _coins: int, deaths: int, time: float, accuracy: float, _secrets: int) -> void:
 	lbl_difficulty.text = difficulty.to_upper()
-	lbl_coins_value.text = str(coins)
+	if lbl_coins_value and lbl_coins_value.get_parent():
+		(lbl_coins_value.get_parent() as Control).visible = false
+	if lbl_secrets_value and lbl_secrets_value.get_parent():
+		(lbl_secrets_value.get_parent() as Control).visible = false
 	lbl_deaths_value.text = str(deaths)
 	
 	var total_sec := int(time)
-	var mm := total_sec / 60.0
+	var mm := total_sec / 60
 	var ss := total_sec % 60
 	lbl_time_value.text = "%02d:%02d" % [mm, ss]
 	
 	lbl_accuracy_value.text = "%.1f%%" % (accuracy * 100.0)
-	lbl_secrets_value.text = "%d/%d" % [secrets, 3]
 
 func set_skill_rating(rating: float) -> void:
 	lbl_skill_rating.text = "SKILL RATING: %.0f%%" % (rating * 100.0)

@@ -18,6 +18,9 @@ var _fade_rect: ColorRect = null
 
 # ─────────────────────────────────────────────────────────────────
 func _ready() -> void:
+	get_tree().debug_collisions_hint = false
+	get_tree().debug_paths_hint = false
+	get_tree().debug_navigation_hint = false
 	print("=" .repeat(44))
 	print("[APLG] Adaptive Platform Generation Framework")
 	print("=".repeat(44))
@@ -77,6 +80,8 @@ func _ready() -> void:
 	(_level_controller as Node).level_ready.connect(_on_level_ready)
 
 	_start_new_level()
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_music()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -116,10 +121,19 @@ func _start_new_level() -> void:
 		return
 
 func _restart_level() -> void:
+	if _game_mgr:
+		_game_mgr.set("is_game_over", false)
+	if hud_node and hud_node.has_method("hide_game_over"):
+		hud_node.hide_game_over()
 	(_level_controller as Node).call("restart_level")
 
 func _on_level_ready(_level_num: int, _width: int, _height: int, _lives: int = 3) -> void:
 	(_game_mgr as Node).call("reset_for_new_level")
+	if hud_node and hud_node.has_method("setup_minimap") and _level_controller:
+		var ld: Dictionary = _level_controller.get("current_level_data") as Dictionary
+		var pnode: Node2D = _level_controller.get("player_node") as Node2D
+		var cam: CameraController = pnode.get_node_or_null("Camera2D") as CameraController if pnode else null
+		hud_node.call("setup_minimap", ld, pnode, cam)
 
 func _update_hud() -> void:
 	if hud_node == null:
@@ -129,12 +143,19 @@ func _update_hud() -> void:
 		return
 	hud_node.set("level_number", snapshot.get("level_number", 1))
 	hud_node.set("elapsed_time", snapshot.get("elapsed_time", 0.0))
-	hud_node.set("coins_collected", snapshot.get("coins_collected", 0))
+	if hud_node.has_method("set_progress"):
+		hud_node.call("set_progress", snapshot.get("progress", 0.0))
 
 # ─────────────────────────────────────────────────────────────────
 func _on_player_died(_death_type: String) -> void:
 	if hud_node and hud_node.has_method("flash_death"):
 		hud_node.flash_death()
+	var pnode = _level_controller.get("player_node") if _level_controller else null
+	var rem_lives: int = 0
+	if pnode and is_instance_valid(pnode) and pnode.has_method("get_lives"):
+		rem_lives = int(pnode.call("get_lives"))
+	if _game_mgr:
+		(_game_mgr as Node).call("on_player_died", rem_lives)
 
 func _on_level_complete(stats: Dictionary) -> void:
 	var lvl: int = int(_game_mgr.get("level_number")) if _game_mgr else 1

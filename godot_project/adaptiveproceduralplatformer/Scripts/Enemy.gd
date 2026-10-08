@@ -183,5 +183,7 @@ func _process(_delta: float) -> void:
 
 func kill() -> void:
 	_alive = false
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").play_sound("explosion")
 	emit_signal("enemy_killed")
 	queue_free()

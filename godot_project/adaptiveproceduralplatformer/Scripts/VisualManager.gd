@@ -121,10 +121,8 @@ func _on_level_completed() -> void:
 		if player:
 			_particle_system.spawn_powerup(player.global_position)
 
-func _on_player_spawned(player_position: Vector2) -> void:
-	# Spawn spawn particles
-	if _particle_system:
-		_particle_system.spawn_checkpoint(player_position)
+func _on_player_spawned(_player_position: Vector2) -> void:
+	pass
 
 # Particle effect integration
 func spawn_dust(position: Vector2) -> void:

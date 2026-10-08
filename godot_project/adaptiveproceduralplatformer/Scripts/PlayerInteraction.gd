@@ -28,14 +28,7 @@ func _on_body_entered(body: Node) -> void:
 		emit_signal("enemy_contact")
 
 func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("coins"):
-		var tile_pos := _tile_service.world_to_tile(area.global_position)
-		emit_signal("coin_collected", tile_pos)
-		area.queue_free()
-	elif area.is_in_group("checkpoints"):
-		var tile_pos := _tile_service.world_to_tile(area.global_position)
-		emit_signal("checkpoint_reached", tile_pos, area.global_position)
-	elif area.is_in_group("exits"):
+	if area.is_in_group("exits"):
 		emit_signal("exit_reached")
 
 func check_tile_interactions() -> void:
@@ -45,9 +38,5 @@ func check_tile_interactions() -> void:
 	match tile_type:
 		PlayerEnums.TileType.HAZARD:
 			emit_signal("hazard_contact")
-		PlayerEnums.TileType.COIN:
-			emit_signal("coin_collected", tile_pos)
-		PlayerEnums.TileType.CHECKPOINT:
-			emit_signal("checkpoint_reached", tile_pos, _character.global_position)
 		PlayerEnums.TileType.EXIT:
 			emit_signal("exit_reached")

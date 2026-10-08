@@ -364,11 +364,11 @@ func _draw_line_on_image(image: Image, start: Vector2, end: Vector2, color: Colo
 func spawn_dust(position: Vector2) -> void:
 	spawn_particles(ParticleType.DUST, position, 8)
 
-func spawn_landing(position: Vector2) -> void:
-	spawn_particles(ParticleType.LANDING, position, 15)
+func spawn_landing(_position: Vector2) -> void:
+	pass
 
-func spawn_jump(position: Vector2) -> void:
-	spawn_particles(ParticleType.JUMP, position, 10)
+func spawn_jump(_position: Vector2) -> void:
+	pass
 
 func spawn_coin(position: Vector2) -> void:
 	spawn_particles(ParticleType.COIN, position, 20)

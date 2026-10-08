@@ -35,23 +35,24 @@ func update(delta: float) -> void:
 func take_damage(death_type: PlayerEnums.DeathType) -> void:
 	if _invincible:
 		return
+	_lives -= 1
 	_invincible = true
 	_invincible_timer = _invincibility_duration
 	
 	emit_signal("health_changed", _lives)
 	emit_signal("death_triggered", death_type)
-	_respawn()
+	if _lives > 0:
+		_respawn()
 
 func _respawn() -> void:
-	var target := _checkpoint_pos if _has_checkpoint else _spawn_pos
+	var target := _spawn_pos
 	_character.global_position = target
 	_invincible = true
 	_invincible_timer = _invincibility_duration
 	emit_signal("respawned", target)
 
-func set_checkpoint(world_pos: Vector2) -> void:
-	_checkpoint_pos = world_pos
-	_has_checkpoint = true
+func set_checkpoint(_world_pos: Vector2) -> void:
+	pass
 
 func get_lives() -> int:
 	return _lives

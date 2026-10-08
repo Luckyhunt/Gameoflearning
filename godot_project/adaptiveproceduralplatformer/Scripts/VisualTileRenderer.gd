@@ -29,8 +29,8 @@ func _ready() -> void:
 	_art_director = get_node_or_null("/root/ArtDirector")
 	if not _art_director:
 		_art_director = ArtDirector.new()
-		get_tree().root.add_child(_art_director)
 		_art_director.name = "ArtDirector"
+		get_tree().root.call_deferred("add_child", _art_director)
 	
 	_tile_visual_generator.set_art_director(_art_director)
 	
@@ -51,20 +51,12 @@ func _generate_tile_atlas() -> void:
 	var platform_dark_texture := _tile_visual_generator.generate_platform_tile(1)
 	var platform_light_texture := _tile_visual_generator.generate_platform_tile(2)
 	var hazard_texture := _tile_visual_generator.generate_hazard_tile()
-	var coin_texture := _tile_visual_generator.generate_coin_tile()
-	var checkpoint_texture := _tile_visual_generator.generate_checkpoint_tile()
-	var exit_texture := _tile_visual_generator.generate_exit_tile()
-	var spawn_texture := _tile_visual_generator.generate_spawn_tile()
 	
 	# Store in atlas
 	_tile_atlas["platform"] = platform_texture
 	_tile_atlas["platform_dark"] = platform_dark_texture
 	_tile_atlas["platform_light"] = platform_light_texture
 	_tile_atlas["hazard"] = hazard_texture
-	_tile_atlas["coin"] = coin_texture
-	_tile_atlas["checkpoint"] = checkpoint_texture
-	_tile_atlas["exit"] = exit_texture
-	_tile_atlas["spawn"] = spawn_texture
 
 func _apply_theme_to_tilemap() -> void:
 	if not _tile_map:
@@ -160,11 +152,5 @@ func apply_theme_to_level(level_data: Array) -> void:
 					apply_tile_to_cell(tile_coords, "platform_light")
 				3: # HAZARD
 					apply_tile_to_cell(tile_coords, "hazard")
-				4: # SPAWN
-					apply_tile_to_cell(tile_coords, "spawn")
-				5: # EXIT
-					apply_tile_to_cell(tile_coords, "exit")
-				6: # CHECKPOINT
-					apply_tile_to_cell(tile_coords, "checkpoint")
-				7: # COIN
-					apply_tile_to_cell(tile_coords, "coin")
+				_: # SPAWN(4), EXIT(5), CHECKPOINT(6), COIN(7), BUFF(8) - never render as tile blocks
+					pass

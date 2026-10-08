@@ -28,7 +28,9 @@ var fade_rect:   ColorRect = null
 # Called by Main.gd when player.player_died fires
 # ─────────────────────────────────────────────────────────────────
 func on_player_died(_remaining_lives: int = 3) -> void:
-	pass
+	session_lives = _remaining_lives
+	if session_lives <= 0:
+		_trigger_game_over()
 
 # ─────────────────────────────────────────────────────────────────
 func _trigger_game_over() -> void:
@@ -56,11 +58,18 @@ func restart_level() -> void:
 func toggle_pause() -> void:
 	is_paused = !is_paused
 	get_tree().paused = is_paused
+	if has_node("/root/AudioManager"):
+		var audio = get_node("/root/AudioManager")
+		if is_paused:
+			audio.pause_music()
+		else:
+			audio.resume_music()
 	emit_signal("request_pause_toggle")
 
 # ─────────────────────────────────────────────────────────────────
 func reset_for_new_level(_lives: int = 3) -> void:
 	is_game_over = false
+	session_lives = _lives
 	if hud_node and hud_node.has_method("hide_game_over"):
 		hud_node.hide_game_over()
 
@@ -77,34 +86,88 @@ func build_pause_overlay() -> CanvasLayer:
 	canvas.process_mode = Node.PROCESS_MODE_ALWAYS
 	canvas.visible = false
 
+	var font_bold = load("res://Assets/fonts/PixelOperator8-Bold.ttf") as Font
+	var font_reg = load("res://Assets/fonts/PixelOperator8.ttf") as Font
+
+	# Stone frame style for pause panel
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.06, 0.08, 0.14, 0.96)
+	panel_style.border_width_left = 3
+	panel_style.border_width_top = 3
+	panel_style.border_width_right = 3
+	panel_style.border_width_bottom = 3
+	panel_style.border_color = Color(0.35, 0.52, 0.75, 0.95)
+	panel_style.shadow_color = Color(0, 0, 0, 0.7)
+	panel_style.shadow_size = 8
+
 	var panel := Panel.new()
-	panel.size = Vector2(300, 220)
+	panel.size = Vector2(360, 310)
 	panel.position = (get_viewport().get_visible_rect().size - panel.size) / 2.0
+	panel.add_theme_stylebox_override("panel", panel_style)
 	canvas.add_child(panel)
 
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 14)
+	vbox.offset_left = 20
+	vbox.offset_top = 18
+	vbox.offset_right = -20
+	vbox.offset_bottom = -18
+	vbox.add_theme_constant_override("separation", 10)
 	panel.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "⏸  PAUSED"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 20)
+	if font_bold:
+		title.add_theme_font_override("font", font_bold)
+		title.add_theme_font_size_override("font_size", 14)
+	title.modulate = Color(1.0, 0.88, 0.38)
 	vbox.add_child(title)
 
+	# Stone button styles matching game texture
+	var btn_normal := StyleBoxFlat.new()
+	btn_normal.bg_color = Color(0.09, 0.12, 0.20, 0.95)
+	btn_normal.border_width_left = 2
+	btn_normal.border_width_top = 2
+	btn_normal.border_width_right = 2
+	btn_normal.border_width_bottom = 2
+	btn_normal.border_color = Color(0.26, 0.38, 0.56, 0.9)
+	btn_normal.content_margin_top = 8.0
+	btn_normal.content_margin_bottom = 8.0
+
+	var btn_hover := StyleBoxFlat.new()
+	btn_hover.bg_color = Color(0.14, 0.20, 0.32, 1.0)
+	btn_hover.border_width_left = 2
+	btn_hover.border_width_top = 2
+	btn_hover.border_width_right = 2
+	btn_hover.border_width_bottom = 2
+	btn_hover.border_color = Color(0.45, 0.88, 1.0, 1.0)
+	btn_hover.content_margin_top = 8.0
+	btn_hover.content_margin_bottom = 8.0
+
+	var style_btn = func(b: Button, text: String):
+		b.text = text
+		b.add_theme_stylebox_override("normal", btn_normal)
+		b.add_theme_stylebox_override("hover", btn_hover)
+		b.add_theme_stylebox_override("pressed", btn_hover)
+		b.add_theme_stylebox_override("focus", btn_hover)
+		if font_reg:
+			b.add_theme_font_override("font", font_reg)
+			b.add_theme_font_size_override("font_size", 9)
+		b.custom_minimum_size = Vector2(0, 36)
+
 	var resume_btn := Button.new()
-	resume_btn.text = "Resume  (ESC)"
+	style_btn.call(resume_btn, "RESUME  (ESC)")
 	resume_btn.pressed.connect(toggle_pause)
 	vbox.add_child(resume_btn)
 
 	var restart_btn := Button.new()
-	restart_btn.text = "Restart Level  (R)"
+	style_btn.call(restart_btn, "RESTART LEVEL  (R)")
 	restart_btn.pressed.connect(restart_level)
 	vbox.add_child(restart_btn)
 
 	var newlevel_btn := Button.new()
-	newlevel_btn.text = "Generate New Level"
+	style_btn.call(newlevel_btn, "NEW LEVEL  (N)")
 	newlevel_btn.pressed.connect(func() -> void:
 		if is_paused:
 			toggle_pause()
@@ -112,5 +175,26 @@ func build_pause_overlay() -> CanvasLayer:
 		emit_signal("request_next_level")
 	)
 	vbox.add_child(newlevel_btn)
+
+	var audio_btn := Button.new()
+	style_btn.call(audio_btn, "AUDIO: ON")
+	audio_btn.pressed.connect(func():
+		if has_node("/root/AudioManager"):
+			var muted: bool = get_node("/root/AudioManager").toggle_mute()
+			audio_btn.text = "AUDIO: MUTED" if muted else "AUDIO: ON"
+	)
+	vbox.add_child(audio_btn)
+
+	var menu_btn := Button.new()
+	style_btn.call(menu_btn, "MAIN MENU")
+	menu_btn.pressed.connect(func() -> void:
+		if is_paused:
+			toggle_pause()
+		get_tree().change_scene_to_file("res://Scenes/MainMenu.tscn")
+	)
+	vbox.add_child(menu_btn)
+
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").hook_buttons(canvas)
 
 	return canvas

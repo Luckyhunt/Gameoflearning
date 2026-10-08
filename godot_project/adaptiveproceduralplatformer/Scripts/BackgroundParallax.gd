@@ -23,8 +23,8 @@ func _ready() -> void:
 	_art_director = get_node_or_null("/root/ArtDirector")
 	if not _art_director:
 		_art_director = ArtDirector.new()
-		get_tree().root.add_child(_art_director)
 		_art_director.name = "ArtDirector"
+		get_tree().root.call_deferred("add_child", _art_director)
 	
 	# Create parallax layers
 	_create_parallax_layers()
@@ -42,50 +42,113 @@ func _create_parallax_layers() -> void:
 	_layers.clear()
 	_layer_speeds.clear()
 	
-	# Create new layers
-	for i in range(NUM_LAYERS):
-		var layer := ParallaxLayer.new()
-		add_child(layer)
-		_layers.append(layer)
-		
-		# Calculate parallax speed (closer layers move slower relative to camera)
-		var speed := 0.15 + (float(i) * 0.2)
-		layer.motion_scale = Vector2(speed, speed * 0.4)
-		layer.motion_mirroring = Vector2(1024, 0)
-		_layer_speeds.append(speed)
-		
-		# Create background texture for this layer
-		_create_layer_texture(layer, i)
+	# Layer 0: Sky & Clouds (ultra-distant, 0.03 speed)
+	var sky_layer := ParallaxLayer.new()
+	sky_layer.motion_scale = Vector2(0.03, 0.01)
+	sky_layer.motion_mirroring = Vector2(1024, 0)
+	add_child(sky_layer)
+	_layers.append(sky_layer)
+	_layer_speeds.append(0.03)
+	_create_layer_texture(sky_layer, 0)
+
+	# Layer 1: Distant Mountain Ridges (0.10 speed)
+	var mtn_layer := ParallaxLayer.new()
+	mtn_layer.motion_scale = Vector2(0.10, 0.04)
+	mtn_layer.motion_mirroring = Vector2(1024, 0)
+	add_child(mtn_layer)
+	_layers.append(mtn_layer)
+	_layer_speeds.append(0.10)
+	_create_layer_texture(mtn_layer, 1)
+
+	# Layer 2: Mid-ground Canopy / Ancient Ruins (0.24 speed)
+	var mid_layer := ParallaxLayer.new()
+	mid_layer.motion_scale = Vector2(0.24, 0.10)
+	mid_layer.motion_mirroring = Vector2(1024, 0)
+	add_child(mid_layer)
+	_layers.append(mid_layer)
+	_layer_speeds.append(0.24)
+	_create_layer_texture(mid_layer, 2)
+
+	# Layer 3: Foreground Atmospheric Details (0.40 speed)
+	var fg_layer := ParallaxLayer.new()
+	fg_layer.motion_scale = Vector2(0.40, 0.18)
+	fg_layer.motion_mirroring = Vector2(1024, 0)
+	add_child(fg_layer)
+	_layers.append(fg_layer)
+	_layer_speeds.append(0.40)
+	_create_layer_texture(fg_layer, 3)
 
 func _create_layer_texture(layer: ParallaxLayer, layer_index: int) -> void:
 	var texture_rect := TextureRect.new()
 	texture_rect.name = "BackgroundTexture"
-	texture_rect.anchors_preset = Control.PRESET_FULL_RECT
+	texture_rect.size = Vector2(1024, 720)
 	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	
-	# Generate procedural texture
 	var texture: Texture2D = _generate_layer_texture(layer_index)
 	texture_rect.texture = texture
-	
 	layer.add_child(texture_rect)
 
 func _generate_layer_texture(layer_index: int) -> Texture2D:
-	var bg_color := _art_director.get_background_color()
-	var primary_color := _art_director.get_color("primary")
-	var secondary_color := _art_director.get_color("secondary")
-	
-	var image_size := Vector2i(512, 512)
-	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
-	
-	# Base color with variation based on layer depth
-	var layer_color := bg_color.lerp(primary_color, 0.1 + layer_index * 0.05)
-	image.fill(layer_color)
-	
-	# Add procedural details based on theme
-	_add_theme_details(image, layer_index, layer_color, primary_color, secondary_color)
-	
-	var texture := ImageTexture.create_from_image(image)
-	return texture
+	var width := 1024
+	var height := 720
+	var image := Image.create(width, height, false, Image.FORMAT_RGBA8)
+
+	if layer_index == 0:
+		# Layer 0: Sky Gradient with Fluffy Pixel Clouds
+		var top_sky := Color(0.12, 0.24, 0.48, 1.0)
+		var mid_sky := Color(0.26, 0.48, 0.74, 1.0)
+		var horizon := Color(0.60, 0.76, 0.90, 1.0)
+
+		for y in range(height):
+			var t := float(y) / float(height)
+			var c: Color = top_sky.lerp(mid_sky, t / 0.6) if t < 0.6 else mid_sky.lerp(horizon, (t - 0.6) / 0.4)
+			for x in range(width):
+				image.set_pixel(x, y, c)
+
+		# Add floating clouds in upper sky
+		var cloud_pts: Array[Vector2i] = [
+			Vector2i(100, 110), Vector2i(260, 150), Vector2i(440, 95),
+			Vector2i(620, 135), Vector2i(800, 105), Vector2i(960, 160)
+		]
+		for pt in cloud_pts:
+			_draw_cloud(image, pt.x, pt.y, 48, 18)
+
+	elif layer_index == 1:
+		# Layer 1: Distant Mountain Silhouettes against Sky
+		image.fill(Color(0, 0, 0, 0)) # Transparent
+		var mtn_col := Color(0.20, 0.32, 0.50, 0.85)
+		_draw_mountain_silhouette(image, 520, mtn_col)
+
+	else:
+		# Layer 2 & 3: Theme-specific silhouettes and atmospheric accents
+		image.fill(Color(0, 0, 0, 0))
+		var bg_color := _art_director.get_background_color()
+		var primary_color := _art_director.get_color("primary")
+		var secondary_color := _art_director.get_color("secondary")
+		_add_theme_details(image, layer_index, bg_color, primary_color, secondary_color)
+
+	return ImageTexture.create_from_image(image)
+
+func _draw_cloud(image: Image, cx: int, cy: int, w: int, h: int) -> void:
+	var col_white := Color(0.96, 0.98, 1.0, 0.78)
+	var col_shade := Color(0.70, 0.82, 0.92, 0.65)
+	for dy in range(-h, h + 1):
+		for dx in range(-w, w + 1):
+			var dist_sq: float = (float(dx) / float(w)) * (float(dx) / float(w)) + (float(dy) / float(h)) * (float(dy) / float(h))
+			if dist_sq <= 1.0:
+				var px: int = cx + dx
+				var py: int = cy + dy
+				if px >= 0 and px < image.get_width() and py >= 0 and py < image.get_height():
+					var c: Color = col_shade if dy > int(h * 0.2) else col_white
+					image.set_pixel(px, py, c)
+
+func _draw_mountain_silhouette(image: Image, base_y: int, mtn_color: Color) -> void:
+	var w: int = image.get_width()
+	for x in range(w):
+		var h: float = sin(x * 0.008) * 90.0 + sin(x * 0.022) * 45.0 + cos(x * 0.05) * 20.0
+		var top_y: int = int(base_y - 120 + h)
+		for y in range(clampi(top_y, 0, image.get_height() - 1), image.get_height()):
+			image.set_pixel(x, y, mtn_color)
 
 func _add_theme_details(image: Image, layer_index: int, base_color: Color, primary: Color, secondary: Color) -> void:
 	var theme := _art_director.get_current_theme()

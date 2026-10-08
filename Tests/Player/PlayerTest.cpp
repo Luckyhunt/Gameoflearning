@@ -225,8 +225,7 @@ int main() {
     std::cout << "\n--- Test 13: Jump Ability ---" << std::endl;
     {
         Player player;
-        // Simulate grounded state
-        const_cast<Player&>(player).m_grounded = true;
+        player.update(0.016f);
         
         if (player.canJumpNow()) {
             std::cout << "PASS: Player can jump when grounded" << std::endl;
@@ -241,9 +240,11 @@ int main() {
     std::cout << "\n--- Test 14: Double Jump Ability ---" << std::endl;
     {
         Player player;
-        // Simulate air state with jumps remaining
-        const_cast<Player&>(player).m_grounded = false;
-        const_cast<Player&>(player).m_jumpsRemaining = 1;
+        player.respawn(Vec2(0.0f, 0.0f));
+        PlayerInput input;
+        input.jump = true;
+        player.processInput(input);
+        player.update(0.016f);
         
         if (player.canDoubleJumpNow()) {
             std::cout << "PASS: Player can double jump in air" << std::endl;

@@ -7,7 +7,7 @@
 [ext_resource type="Script" path="res://Scripts/PlayerAnalytics.gd" id="5_analytics"]
 [ext_resource type="Script" path="res://Scripts/TileService.gd" id="6_tile_service"]
 [ext_resource type="Script" path="res://Scripts/CameraController.gd" id="7_camera"]
-[ext_resource type="Texture2D" path="res://player_suited.png" id="8_sprite"]
+[ext_resource type="Texture2D" path="res://Assets/sprites/knight.png" id="8_sprite"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(16, 32)
@@ -16,11 +16,14 @@ size = Vector2(16, 32)
 script = ExtResource("1_player")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-scale = Vector2(0.35, 0.35)
 texture = ExtResource("8_sprite")
+hframes = 8
+vframes = 8
+frame = 0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")
+debug_color = Color(0, 0, 0, 0)
 
 [node name="Camera2D" type="Camera2D" parent="."]
 script = ExtResource("7_camera")
@@ -40,6 +43,7 @@ script = ExtResource("4_interaction")
 
 [node name="PlayerInteractionCollision" type="CollisionShape2D" parent="PlayerInteraction"]
 shape = SubResource("RectangleShape2D_1")
+debug_color = Color(0, 0, 0, 0)
 
 [node name="PlayerAnalytics" type="Node" parent="."]
 script = ExtResource("5_analytics")

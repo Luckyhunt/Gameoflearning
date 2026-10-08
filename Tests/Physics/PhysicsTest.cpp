@@ -1,5 +1,6 @@
 #include "../../Physics/IPhysicsBody.h"
 #include "../../Physics/CollisionDetection.h"
+#include "../../Physics/AntigravityController.h"
 #include <iostream>
 
 using namespace APLG;
@@ -192,6 +193,41 @@ int main() {
             failed++;
         }
     }
+
+    // Test 11: Antigravity Inversion & Acceleration Vector
+    std::cout << "\n--- Test 11: Antigravity Inversion & Acceleration Vector ---" << std::endl;
+    {
+        AntigravityController ag(980.0f, Vec2(0.0f, -1.0f));
+        Vec2 normalGrav = ag.getGravityVector();
+        ag.invertGravity();
+        Vec2 invertedGrav = ag.getGravityVector();
+
+        if (ag.isInverted() && normalGrav.y == -980.0f && invertedGrav.y == 980.0f) {
+            std::cout << "PASS: Antigravity inversion correctly flips gravity vector" << std::endl;
+            passed++;
+        } else {
+            std::cout << "FAIL: Antigravity inversion failed" << std::endl;
+            failed++;
+        }
+    }
+
+    // Test 12: Antigravity Jump Impulse & Grounded Surface Check
+    std::cout << "\n--- Test 12: Antigravity Jump Impulse & Grounded Surface Check ---" << std::endl;
+    {
+        AntigravityController ag(980.0f, Vec2(0.0f, -1.0f));
+        ag.invertGravity(); // Gravity is now UP (0, 1)
+
+        Vec2 jumpImpulse = ag.calculateJumpImpulse(600.0f);
+        bool isGroundedOnCeiling = ag.isGroundedOnSurface(Vec2(0.0f, -1.0f)); // Normal pointing DOWN from ceiling
+
+        if (jumpImpulse.y == -600.0f && isGroundedOnCeiling) {
+            std::cout << "PASS: Inverted jump impulse and ceiling grounded check valid" << std::endl;
+            passed++;
+        } else {
+            std::cout << "FAIL: Inverted jump impulse or grounded check invalid" << std::endl;
+            failed++;
+        }
+    }
     
     // Summary
     std::cout << "\n=== Test Summary ===" << std::endl;
@@ -201,3 +237,4 @@ int main() {
     
     return (failed == 0) ? 0 : 1;
 }
+

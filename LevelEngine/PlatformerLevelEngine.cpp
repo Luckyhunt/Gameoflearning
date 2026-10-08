@@ -16,6 +16,7 @@
 // ============================================================
 
 #include "PlatformerLevelEngine.h"
+#include "PygamePlatformGenerator.h"
 #include "GameplayDecorator.h"
 #include "ILogger.h"
 #include <algorithm>
@@ -196,123 +197,7 @@ LevelData PlatformerLevelEngine::generate(
     //   3. High Ridge Section (50% to 80%): Elevated traversal, multi-tier ledges
     //   4. Stepped Descent & Finale (80% to 100%): Controlled drops & exit climb
     // ──────────────────────────────────────────────────────────────
-
-    std::vector<PlatformNode> path;
-
-    // Entry start: near bottom
-    int32 startY = safe.height - 4;
-    startY = std::clamp(startY, 3, safe.height - 3);
-
-    int32 firstWidth = std::clamp(safe.maxPlatformWidth, safe.minPlatformWidth, safe.width - 4);
-
-    PlatformNode first;
-    first.x           = 1;
-    first.y           = startY;
-    first.width       = firstWidth;
-    first.isStart     = true;
-    first.isEnd       = false;
-    first.isAlternate = false;
-    path.push_back(first);
-
-    int32 cursorX = first.x + first.width;
-    int32 cursorY = first.y;
-
-    int32 minY = startY;
-    int32 maxY = startY;
-
-    const float32 totalSpan = static_cast<float32>(safe.width - 4);
-
-    while (cursorX < safe.width - 3) {
-        float32 progress = std::clamp(static_cast<float32>(cursorX) / totalSpan, 0.0f, 1.0f);
-
-        // Calculate progressive difficulty scaling for platform width & gap size
-        int32 curMinW = safe.minPlatformWidth;
-        int32 curMaxW = safe.maxPlatformWidth;
-        if (safe.progressiveDifficulty) {
-            float32 wFactor = 1.0f - progress * 0.5f;
-            curMaxW = std::max(curMinW, static_cast<int32>(std::round(safe.maxPlatformWidth * wFactor)));
-        }
-        int32 platW = randInt(curMinW, std::max(curMinW, curMaxW));
-
-        int32 curMaxGap = safe.maxGap;
-        if (safe.progressiveDifficulty) {
-            float32 gFactor = 0.5f + progress * 0.5f;
-            curMaxGap = std::clamp(static_cast<int32>(std::round(safe.maxGap * gFactor)), safe.minGap, safe.maxGap);
-        }
-        int32 gap = randInt(safe.minGap, curMaxGap);
-
-        // Section-based vertical delta determination
-        int32 targetDeltaY = 0;
-        if (progress < 0.20f) {
-            // Section 1: Gentle entry wobble
-            targetDeltaY = randInt(-1, 1);
-        } else if (progress < 0.50f) {
-            // Section 2: Strong Vertical Ascent Climb
-            targetDeltaY = randInt(-safe.maxVerticalChange, -1);
-        } else if (progress < 0.80f) {
-            // Section 3: High Ridge Traversal (keep Y near upper range, e.g. row 2 to 5)
-            targetDeltaY = randInt(-1, 1);
-            if (cursorY > 5) targetDeltaY = -randInt(1, safe.maxVerticalChange);
-        } else {
-            // Section 4: Stepped Descent & Finale
-            if (cursorY < safe.height - 5) {
-                targetDeltaY = randInt(1, safe.maxVerticalChange);
-            } else {
-                targetDeltaY = randInt(-1, 1);
-            }
-        }
-
-        // Clamp vertical changes to max 2 tiles to eliminate deep narrow pits/shafts
-        safe.maxVerticalChange = std::min(safe.maxVerticalChange, 2);
-        platW = std::max(platW, 4);
-
-        int32 deltaY = std::clamp(targetDeltaY, -safe.maxVerticalChange, safe.maxVerticalChange);
-        int32 nextX  = cursorX + gap;
-        int32 nextY  = std::clamp(cursorY + deltaY, 2, safe.height - 3);
-
-        // Check horizontal boundary
-        if (nextX + safe.minPlatformWidth > safe.width - 2) {
-            nextX = std::max(cursorX + 1, safe.width - 2 - safe.minPlatformWidth);
-            platW = safe.width - 2 - nextX;
-        }
-
-        platW = std::clamp(platW, 1, safe.width - 2 - nextX);
-        if (platW < 1) break;
-
-        PlatformNode node;
-        node.x           = nextX;
-        node.y           = nextY;
-        node.width       = platW;
-        node.isStart     = false;
-        node.isEnd       = (nextX + platW >= safe.width - 3);
-        node.isAlternate = false;
-        path.push_back(node);
-
-        cursorX = nextX + platW;
-        cursorY = nextY;
-
-        minY = std::min(minY, nextY);
-        maxY = std::max(maxY, nextY);
-
-        if (node.isEnd) break;
-    }
-
-    // Guarantee minimum vertical progression amplitude
-    int32 currentAmplitude = maxY - minY;
-    if (currentAmplitude < safe.minVerticalProgression && path.size() >= 3) {
-        // Boost elevation changes in the middle section of path to guarantee vertical range
-        size_t midStart = path.size() / 4;
-        size_t midEnd   = (path.size() * 3) / 4;
-        int32 targetHighY = std::max(2, safe.height - 4 - safe.minVerticalProgression);
-
-        for (size_t i = midStart; i <= midEnd; ++i) {
-            path[i].y = std::clamp(targetHighY + randInt(-1, 1), 2, safe.height - 3);
-        }
-    }
-
-    if (!path.empty()) {
-        path.back().isEnd = true;
-    }
+    std::vector<PlatformNode> path = PygamePlatformGenerator::generatePlatforms(safe);
 
     // ──────────────────────────────────────────────────────────────
     // Phase 1.5 — Multi-Level Alternate Routes (High Shortcuts & Low Routes)

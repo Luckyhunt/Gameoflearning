@@ -38,15 +38,19 @@ func _ready() -> void:
 	btn_main_menu.pressed.connect(_on_main_menu_pressed)
 	btn_next_difficulty.pressed.connect(_on_next_difficulty_pressed)
 	
+	if has_node("/root/AudioManager"):
+		get_node("/root/AudioManager").hook_buttons(self)
+
 	# Start animations
 	_animate_in()
 
-func set_statistics(deaths: int, coins: int, time: float, accuracy: float) -> void:
+func set_statistics(deaths: int, _coins: int, time: float, accuracy: float) -> void:
 	lbl_deaths_value.text = str(deaths)
-	lbl_coins_value.text = str(coins)
+	if lbl_coins_value and lbl_coins_value.get_parent():
+		(lbl_coins_value.get_parent() as Control).visible = false
 	
 	var total_sec := int(time)
-	var mm := total_sec / 60.0
+	var mm := total_sec / 60
 	var ss := total_sec % 60
 	lbl_time_value.text = "%02d:%02d" % [mm, ss]
 	

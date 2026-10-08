@@ -470,14 +470,12 @@ private:
             performJump();
             m_jumpBufferTime = 0.0f;
         }
-        
         // Double jump
-        if (m_input.jump && canDoubleJumpNow()) {
+        else if (m_input.jump && canDoubleJumpNow()) {
             performDoubleJump();
         }
-        
         // Wall jump
-        if (m_input.jump && m_touchingWall && !m_grounded && m_abilities.canWallJump) {
+        else if (m_input.jump && m_touchingWall && !m_grounded && m_abilities.canWallJump) {
             performWallJump();
         }
         
@@ -497,6 +495,7 @@ private:
         vel.y = m_abilities.jumpForce;
         m_physicsBody->setVelocity(vel);
         m_jumpsRemaining--;
+        m_grounded = false;
         m_state = PlayerState::Jumping;
     }
     

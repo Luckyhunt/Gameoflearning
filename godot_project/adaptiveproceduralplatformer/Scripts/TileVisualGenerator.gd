@@ -29,6 +29,10 @@ func set_art_director(director: ArtDirector) -> void:
 
 # Generate platform tile texture
 func generate_platform_tile(variant: int = 0) -> Texture2D:
+	var tex_path: String = "res://Assets/sprites/world_tileset.png"
+	if ResourceLoader.exists(tex_path):
+		return load(tex_path) as Texture2D
+
 	var cache_key := "platform_%d_%d" % [_art_director.get_current_theme(), variant]
 	if _texture_cache.has(cache_key):
 		return _texture_cache[cache_key]
@@ -36,10 +40,7 @@ func generate_platform_tile(variant: int = 0) -> Texture2D:
 	var image := Image.create(TILE_SIZE, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	var base_color := _art_director.get_platform_color(variant)
 	
-	# Fill base
 	image.fill(base_color)
-	
-	# Add texture details
 	_add_platform_texture(image, base_color, variant)
 	
 	var texture := ImageTexture.create_from_image(image)
@@ -55,10 +56,7 @@ func generate_hazard_tile() -> Texture2D:
 	var image := Image.create(TILE_SIZE, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	var hazard_color := _art_director.get_hazard_color()
 	
-	# Fill base
 	image.fill(hazard_color)
-	
-	# Add hazard pattern (spikes)
 	_add_hazard_pattern(image, hazard_color)
 	
 	var texture := ImageTexture.create_from_image(image)
@@ -67,6 +65,10 @@ func generate_hazard_tile() -> Texture2D:
 
 # Generate coin tile texture
 func generate_coin_tile() -> Texture2D:
+	var tex_path: String = "res://Assets/sprites/coin.png"
+	if ResourceLoader.exists(tex_path):
+		return load(tex_path) as Texture2D
+
 	var cache_key := "coin_%d" % _art_director.get_current_theme()
 	if _texture_cache.has(cache_key):
 		return _texture_cache[cache_key]
@@ -75,8 +77,6 @@ func generate_coin_tile() -> Texture2D:
 	image.fill(Color.TRANSPARENT)
 	
 	var coin_color := _art_director.get_coin_color()
-	
-	# Draw coin circle
 	_add_coin_pattern(image, coin_color)
 	
 	var texture := ImageTexture.create_from_image(image)

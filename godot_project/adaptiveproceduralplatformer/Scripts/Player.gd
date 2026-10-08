@@ -261,7 +261,7 @@ func on_hazard_contact() -> void:
 	if _lives <= 0:
 		_trigger_death("hazard")
 
-func on_enemy_contact(enemy_pos: Vector2 = Vector2.ZERO) -> void:
+func on_enemy_contact(enemy_pos: Variant = null) -> void:
 	if _invincible: return
 	_invincible = true
 	_invincible_timer = 1.0

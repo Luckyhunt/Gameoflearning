@@ -242,14 +242,15 @@ int main() {
     {
         EntityManager manager;
         auto enemy = std::make_shared<Enemy>(EnemyBehavior::Patrol, Vec2(0, 0));
+        enemy->setPatrolPoints({Vec2(10, 0)});
         manager.addEntity(enemy);
         
         Vec2 initialPos = enemy->getPosition();
         manager.update(0.1f);
         Vec2 finalPos = enemy->getPosition();
         
-        // Position should change due to physics
-        if (finalPos.y < initialPos.y) {
+        // Position should change due to patrol update
+        if (finalPos.x > initialPos.x) {
             std::cout << "PASS: Entity updated with physics" << std::endl;
             passed++;
         } else {

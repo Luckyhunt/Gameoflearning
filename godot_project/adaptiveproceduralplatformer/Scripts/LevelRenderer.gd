@@ -16,11 +16,6 @@ const ATLAS: Dictionary = {
 	 1: Vector2i(1, 0),   # Solid
 	 2: Vector2i(2, 0),   # Platform
 	 3: Vector2i(3, 0),   # Hazard
-	 4: Vector2i(0, 1),   # Spawn
-	 5: Vector2i(1, 1),   # Exit
-	 6: Vector2i(2, 1),   # Checkpoint
-	 7: Vector2i(3, 1),   # Coin
-	 8: Vector2i(0, 2),   # Powerup
 	 9: Vector2i(1, 2),   # Secret
 	10: Vector2i(2, 2),   # MovingPlatform
 	11: Vector2i(3, 2),   # FallingPlatform
@@ -64,19 +59,12 @@ func render(ld: Dictionary) -> void:
 			if tt == 0:
 				continue
 
+			# Exclude non-terrain markers (spawn=4, exit=5, checkpoint=6, coin=7, buff=8)
+			if tt == 4 or tt == 5 or tt == 6 or tt == 7 or tt == 8:
+				continue
+
 			if ATLAS.has(tt):
 				layer.set_cell(Vector2i(x, y), 0, ATLAS[tt] as Vector2i)
-
-			# Track interactive tiles
-			match tt:
-				7:  # Coin
-					live_coin_tiles.append(Vector2i(x, y))
-				6:  # Checkpoint
-					var wp := Vector2(
-						x * TILE_SIZE + TILE_SIZE / 2.0,
-						y * TILE_SIZE + TILE_SIZE / 2.0 - 4.0
-					)
-					live_checkpoint_tiles[Vector2i(x, y)] = wp
 
 	# Spawn / Exit world positions
 	var sx: int = int(ld.get("spawn_x", 1))
@@ -124,7 +112,11 @@ func build_tileset() -> TileSet:
 	ts.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
 
 	var src := TileSetAtlasSource.new()
-	src.texture = _create_debug_atlas()
+	var tex_path: String = "res://Assets/sprites/world_tileset.png"
+	if ResourceLoader.exists(tex_path):
+		src.texture = load(tex_path) as Texture2D
+	else:
+		src.texture = _create_debug_atlas()
 	src.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
 	ts.add_source(src, 0)
 

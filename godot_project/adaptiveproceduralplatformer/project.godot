@@ -12,9 +12,23 @@ config_version=5
 
 config/name="AdaptiveProceduralPlatformer"
 config/description="Adaptive Procedural Level Generation Framework"
-run/main_scene="res://Scenes/Main.tscn"
+run/main_scene="res://Scenes/MainMenu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+AudioManager="*res://Scripts/AudioManager.gd"
+
+[debug]
+
+shapes/navigation/3d/geometry_edge_color=Color(0, 0, 0, 0)
+shapes/navigation/3d/geometry_face_color=Color(0, 0, 0, 0)
+shapes/navigation/2d/geometry_edge_color=Color(0, 0, 0, 0)
+shapes/navigation/2d/geometry_face_color=Color(0, 0, 0, 0)
+shapes/collision/shape_color=Color(0, 0, 0, 0)
+shapes/collision/contact_color=Color(0, 0, 0, 0)
+shapes/paths/geometry_color=Color(0, 0, 0, 0)
 
 [display]
 
@@ -67,9 +81,8 @@ pause={
 
 [rendering]
 
+textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-textures/canvas_textures/default_texture_filter=0
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true
-

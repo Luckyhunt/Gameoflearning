@@ -76,16 +76,19 @@ if(GTest_FOUND)
     
     add_test(NAME PhysicsTest COMMAND PhysicsTest)
     
-    # Player test disabled - needs update for private member access
-    # add_executable(PlayerTest
-    #     Player/PlayerTest.cpp
-    # )
-    # 
-    # target_link_libraries(PlayerTest
-    #     AdaptiveProceduralLevelGeneration
-    # )
-    # 
-    # add_test(NAME PlayerTest COMMAND PlayerTest)
+    # Player test
+    add_executable(PlayerTest
+        Player/PlayerTest.cpp
+    )
+    target_link_libraries(PlayerTest
+        AdaptiveProceduralLevelGeneration
+    )
+    if(WIN32)
+        set_target_properties(PlayerTest PROPERTIES
+            MSVC_RUNTIME_LIBRARY "MultiThreaded"
+        )
+    endif()
+    add_test(NAME PlayerTest COMMAND PlayerTest)
     
     # Generation test
     add_executable(GenerationTest
@@ -172,16 +175,19 @@ if(GTest_FOUND)
     
     add_test(NAME AITest COMMAND AITest)
     
-    # Gameplay test disabled - needs update for private entity classes
-    # add_executable(GameplayTest
-    #     Gameplay/GameplayTest.cpp
-    # )
-    # 
-    # target_link_libraries(GameplayTest
-    #     AdaptiveProceduralLevelGeneration
-    # )
-    # 
-    # add_test(NAME GameplayTest COMMAND GameplayTest)
+    # Gameplay test
+    add_executable(GameplayTest
+        Gameplay/GameplayTest.cpp
+    )
+    target_link_libraries(GameplayTest
+        AdaptiveProceduralLevelGeneration
+    )
+    if(WIN32)
+        set_target_properties(GameplayTest PROPERTIES
+            MSVC_RUNTIME_LIBRARY "MultiThreaded"
+        )
+    endif()
+    add_test(NAME GameplayTest COMMAND GameplayTest)
     
     # Save system test
     add_executable(SaveSystemTest
@@ -200,16 +206,19 @@ if(GTest_FOUND)
     
     add_test(NAME SaveSystemTest COMMAND SaveSystemTest)
     
-    # UI test disabled - needs update for new UI implementation
-    # add_executable(UITest
-    #     UI/UITest.cpp
-    # )
-    # 
-    # target_link_libraries(UITest
-    #     AdaptiveProceduralLevelGeneration
-    # )
-    # 
-    # add_test(NAME UITest COMMAND UITest)
+    # UI test
+    add_executable(UITest
+        UI/UITest.cpp
+    )
+    target_link_libraries(UITest
+        AdaptiveProceduralLevelGeneration
+    )
+    if(WIN32)
+        set_target_properties(UITest PROPERTIES
+            MSVC_RUNTIME_LIBRARY "MultiThreaded"
+        )
+    endif()
+    add_test(NAME UITest COMMAND UITest)
 else()
     message(STATUS "GTest not found, building simple test executables")
     
@@ -312,6 +321,39 @@ else()
         set_target_properties(SaveSystemTest PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded")
     endif()
     add_test(NAME SaveSystemTest COMMAND SaveSystemTest)
+
+    add_executable(PlayerTest
+        Player/PlayerTest.cpp
+    )
+    target_link_libraries(PlayerTest
+        AdaptiveProceduralLevelGeneration
+    )
+    if(WIN32)
+        set_target_properties(PlayerTest PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    endif()
+    add_test(NAME PlayerTest COMMAND PlayerTest)
+
+    add_executable(GameplayTest
+        Gameplay/GameplayTest.cpp
+    )
+    target_link_libraries(GameplayTest
+        AdaptiveProceduralLevelGeneration
+    )
+    if(WIN32)
+        set_target_properties(GameplayTest PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    endif()
+    add_test(NAME GameplayTest COMMAND GameplayTest)
+
+    add_executable(UITest
+        UI/UITest.cpp
+    )
+    target_link_libraries(UITest
+        AdaptiveProceduralLevelGeneration
+    )
+    if(WIN32)
+        set_target_properties(UITest PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    endif()
+    add_test(NAME UITest COMMAND UITest)
 
     add_executable(ReachabilityRegressionTest
         Validation/ReachabilityRegressionTest.cpp

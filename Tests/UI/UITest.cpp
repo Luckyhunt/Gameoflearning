@@ -230,7 +230,7 @@ int main() {
     // Test 16: UI Manager
     std::cout << "\n--- Test 16: UI Manager ---" << std::endl;
     {
-        UIManager* manager = getUIManager();
+        IUIManager* manager = getUIManager();
         
         if (manager && manager->getHUD() && manager->getMainMenu()) {
             std::cout << "PASS: UI Manager initialized" << std::endl;
@@ -244,7 +244,7 @@ int main() {
     // Test 17: UI Manager menu access
     std::cout << "\n--- Test 17: UI Manager Menu Access ---" << std::endl;
     {
-        UIManager* manager = getUIManager();
+        IUIManager* manager = getUIManager();
         
         if (manager->getMainMenu() && manager->getPauseMenu() && manager->getSettingsMenu()) {
             std::cout << "PASS: All menus accessible" << std::endl;
@@ -258,7 +258,7 @@ int main() {
     // Test 18: UI Manager show main menu
     std::cout << "\n--- Test 18: UI Manager Show Main Menu ---" << std::endl;
     {
-        UIManager* manager = getUIManager();
+        IUIManager* manager = getUIManager();
         manager->showMainMenu(true);
         
         if (manager->getMainMenu()->isVisible()) {
@@ -274,7 +274,7 @@ int main() {
     // Test 19: UI Manager show HUD
     std::cout << "\n--- Test 19: UI Manager Show HUD ---" << std::endl;
     {
-        UIManager* manager = getUIManager();
+        IUIManager* manager = getUIManager();
         manager->showHUD(false);
         
         if (!manager->getHUD()->isVisible()) {
