@@ -248,27 +248,16 @@ LevelData PlatformerLevelEngine::generate(
         safePut(level, pri, px, safe.height - 2, TileType::Solid, PRI_FLOOR);
     }
 
-    // Stamp Classroom Desk Ledges & Neat Support Legs for each node
+    // Stamp Clean Ledge Platforms for each node (pure floating platforms without bulky rock legs)
     for (const auto& node : path) {
         for (int32 px = node.x; px < node.x + node.width && px < safe.width - 1; ++px) {
-            // Desk Ledge surface
+            // Platform surface
             safePut(level, pri, px, node.y, TileType::Platform, PRI_FLOOR);
-            // Open air clearance above desk
+            // Open air clearance above platform
             for (int32 headrow : {node.y - 1, node.y - 2, node.y - 3}) {
                 if (headrow >= 1) {
                     safePut(level, pri, px, headrow, TileType::Empty, PRI_AIR);
                 }
-            }
-        }
-
-        // Support Legs extend 2 tiles down under desk surface (preserving open corridor walking space)
-        int32 legX1 = node.x;
-        int32 legX2 = std::min(safe.width - 2, node.x + node.width - 1);
-        int32 maxLegY = std::min(node.y + 2, safe.height - 5);
-        for (int32 py = node.y + 1; py <= maxLegY; ++py) {
-            safePut(level, pri, legX1, py, TileType::Solid, PRI_FLOOR);
-            if (legX2 > legX1) {
-                safePut(level, pri, legX2, py, TileType::Solid, PRI_FLOOR);
             }
         }
     }
@@ -294,9 +283,10 @@ LevelData PlatformerLevelEngine::generate(
         const PlatformNode& node = path[i];
         for (int32 px = node.x; px < node.x + node.width; ++px) {
             if (randFloat(0.0f, 1.0f) < safe.coinDensity || node.isAlternate) {
-                if (inBounds(level, px, node.y) && pri[node.y][px] <= PRI_AIR) {
-                    safePut(level, pri, px, node.y, TileType::Coin, PRI_DECORATION);
-                    level.coinPositions.push_back(Vec2i(px, node.y));
+                int32 coinY = node.y - 1;
+                if (coinY >= 1 && inBounds(level, px, coinY) && pri[coinY][px] <= PRI_AIR) {
+                    safePut(level, pri, px, coinY, TileType::Coin, PRI_DECORATION);
+                    level.coinPositions.push_back(Vec2i(px, coinY));
                 }
             }
         }

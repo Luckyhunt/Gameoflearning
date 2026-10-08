@@ -36,7 +36,7 @@ var _buttons: Array[Button] = []
 var _current_button_index: int = 0
 
 # State
-var _difficulties: Array[String] = ["NORMAL", "HARD", "EXTREME", "DYNAMIC", "EASY"]
+var _difficulties: Array[String] = ["BEGINNER", "MODERATE", "ADVANCED", "EXPERT"]
 var _difficulty_idx: int = 0
 var _info_popup: Panel = null
 var _info_label: Label = null
@@ -44,10 +44,13 @@ var _info_label: Label = null
 # Sprite animation references
 var _knight_spr: Sprite2D = null
 var _coin_spr: Sprite2D = null
+var _slime_spr: Sprite2D = null
 var _knight_timer: float = 0.0
 var _knight_frame: int = 0
 var _coin_timer: float = 0.0
 var _coin_frame: int = 0
+var _slime_timer: float = 0.0
+var _slime_frame: int = 0
 
 func _ready() -> void:
 	# Collect buttons
@@ -88,6 +91,14 @@ func _process(delta: float) -> void:
 			_coin_timer = 0.0
 			_coin_frame = (_coin_frame + 1) % 12
 			_coin_spr.frame = _coin_frame
+
+	# 3) Slime enemy idle breathing animation
+	if _slime_spr:
+		_slime_timer += delta
+		if _slime_timer >= 0.15:
+			_slime_timer = 0.0
+			_slime_frame = (_slime_frame + 1) % 4
+			_slime_spr.frame = _slime_frame
 
 func _setup_game_entrance_visuals() -> void:
 	var font_bold = load("res://Assets/fonts/PixelOperator8-Bold.ttf") as Font
@@ -166,12 +177,12 @@ func _setup_game_entrance_visuals() -> void:
 		title_label.modulate = Color(1.0, 0.88, 0.38)
 		title_label.text = "ADAPTIVE PLATFORMER"
 		
-		# Add Subtitle
+		# Add Subtitle without symbols
 		var tc := title_label.get_parent()
 		if tc and not tc.has_node("SubtitleLabel"):
 			var sub := Label.new()
 			sub.name = "SubtitleLabel"
-			sub.text = "✦ THE ANCIENT EXPEDITION ✦"
+			sub.text = "THE EXPEDITION"
 			sub.add_theme_font_override("font", font_reg)
 			sub.add_theme_font_size_override("font_size", 11)
 			sub.modulate = Color(0.40, 0.88, 1.0, 0.95)
@@ -179,38 +190,70 @@ func _setup_game_entrance_visuals() -> void:
 			tc.add_child(sub)
 			sub.position = Vector2(0, 52)
 			
-	# Pixel button styles matching game texture
-	var btn_normal := StyleBoxFlat.new()
-	btn_normal.bg_color = Color(0.07, 0.10, 0.18, 0.96)
-	btn_normal.border_width_left = 2
-	btn_normal.border_width_top = 2
-	btn_normal.border_width_right = 2
-	btn_normal.border_width_bottom = 2
-	btn_normal.border_color = Color(0.26, 0.38, 0.56, 0.9)
-	btn_normal.content_margin_left = 24.0
-	btn_normal.content_margin_right = 24.0
-	btn_normal.content_margin_top = 10.0
-	btn_normal.content_margin_bottom = 10.0
-	
-	var btn_hover := StyleBoxFlat.new()
-	btn_hover.bg_color = Color(0.14, 0.20, 0.32, 1.0)
-	btn_hover.border_width_left = 2
-	btn_hover.border_width_top = 2
-	btn_hover.border_width_right = 2
-	btn_hover.border_width_bottom = 2
-	btn_hover.border_color = Color(0.45, 0.88, 1.0, 1.0)
-	btn_hover.content_margin_left = 24.0
-	btn_hover.content_margin_right = 24.0
-	btn_hover.content_margin_top = 10.0
-	btn_hover.content_margin_bottom = 10.0
+	# Textured pixel-art stone button styles matching authentic game aesthetics
+	var tex_normal = load("res://Assets/sprites/btn_stone_normal.png") as Texture2D
+	var tex_hover = load("res://Assets/sprites/btn_stone_hover.png") as Texture2D
+	var tex_pressed = load("res://Assets/sprites/btn_stone_pressed.png") as Texture2D
+
+	var btn_normal: StyleBox
+	var btn_hover: StyleBox
+	var btn_pressed: StyleBox
+
+	if tex_normal and tex_hover:
+		var s_norm := StyleBoxTexture.new()
+		s_norm.texture = tex_normal
+		s_norm.texture_margin_left = 6.0
+		s_norm.texture_margin_right = 6.0
+		s_norm.texture_margin_top = 6.0
+		s_norm.texture_margin_bottom = 6.0
+		s_norm.content_margin_left = 24.0
+		s_norm.content_margin_right = 24.0
+		s_norm.content_margin_top = 10.0
+		s_norm.content_margin_bottom = 10.0
+		btn_normal = s_norm
+
+		var s_hov := StyleBoxTexture.new()
+		s_hov.texture = tex_hover
+		s_hov.texture_margin_left = 6.0
+		s_hov.texture_margin_right = 6.0
+		s_hov.texture_margin_top = 6.0
+		s_hov.texture_margin_bottom = 6.0
+		s_hov.content_margin_left = 24.0
+		s_hov.content_margin_right = 24.0
+		s_hov.content_margin_top = 10.0
+		s_hov.content_margin_bottom = 10.0
+		btn_hover = s_hov
+
+		var s_press := StyleBoxTexture.new()
+		s_press.texture = tex_pressed if tex_pressed else tex_hover
+		s_press.texture_margin_left = 6.0
+		s_press.texture_margin_right = 6.0
+		s_press.texture_margin_top = 6.0
+		s_press.texture_margin_bottom = 6.0
+		s_press.content_margin_left = 24.0
+		s_press.content_margin_right = 24.0
+		s_press.content_margin_top = 11.0
+		s_press.content_margin_bottom = 9.0
+		btn_pressed = s_press
+	else:
+		var fb := StyleBoxFlat.new()
+		fb.bg_color = Color(0.12, 0.16, 0.24, 0.95)
+		fb.border_width_left = 2
+		fb.border_width_top = 2
+		fb.border_width_right = 2
+		fb.border_width_bottom = 2
+		fb.border_color = Color(0.35, 0.45, 0.60, 1.0)
+		btn_normal = fb
+		btn_hover = fb
+		btn_pressed = fb
 
 	var btn_texts := [
-		"▶  PLAY",
-		"⚔  DIFFICULTY: NORMAL",
-		"♪  AUDIO: ON",
-		"◈  ARCHITECTURE",
-		"★  CREDITS",
-		"✖  QUIT"
+		"PLAY",
+		"DIFFICULTY: " + _difficulties[_difficulty_idx],
+		"AUDIO: ON",
+		"ARCHITECTURE",
+		"CREDITS",
+		"QUIT"
 	]
 
 	for i in range(_buttons.size()):
@@ -219,34 +262,23 @@ func _setup_game_entrance_visuals() -> void:
 			btn.text = btn_texts[i]
 			btn.add_theme_stylebox_override("normal", btn_normal)
 			btn.add_theme_stylebox_override("hover", btn_hover)
-			btn.add_theme_stylebox_override("pressed", btn_hover)
+			btn.add_theme_stylebox_override("pressed", btn_pressed)
 			btn.add_theme_stylebox_override("focus", btn_hover)
+			btn.add_theme_color_override("font_color", Color(0.88, 0.92, 0.98))
+			btn.add_theme_color_override("font_hover_color", Color(1.0, 0.90, 0.35))
+			btn.add_theme_color_override("font_pressed_color", Color(0.72, 0.80, 0.92))
+			btn.add_theme_color_override("font_focus_color", Color(1.0, 0.90, 0.35))
 			if font_bold:
 				btn.add_theme_font_override("font", font_bold)
 				btn.add_theme_font_size_override("font_size", 10)
-				btn.add_theme_font_size_override("font_size", 10)
 				
-	# Hero Stage Vignette (Knight hero standing on mossy platform by Ancient Door)
+	# Hero Stage Vignette (Knight hero and Enemy Slime standing on mossy platform)
 	var stage := Control.new()
 	stage.name = "HeroStage"
 	stage.position = Vector2(260, 470)
 	add_child(stage)
-	
-	# Pedestal stone bricks (from world_tileset.png)
-	var tileset_tex = load("res://Assets/sprites/world_tileset.png") as Texture2D
-	if tileset_tex:
-		for col in range(-2, 3):
-			var brick_spr := Sprite2D.new()
-			brick_spr.texture = tileset_tex
-			brick_spr.region_enabled = true
-			brick_spr.region_rect = Rect2(16, 16, 16, 16)
-			brick_spr.scale = Vector2(3.0, 3.0)
-			brick_spr.position = Vector2(col * 48, 48)
-			brick_spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			brick_spr.modulate = Color(0.6, 0.65, 0.75, 0.8)
-			stage.add_child(brick_spr)
 
-	# Mossy Platform (from platforms.png)
+	# Clean Floating Mossy Platform (from platforms.png)
 	var plat_tex = load("res://Assets/sprites/platforms.png") as Texture2D
 	if plat_tex:
 		var plat_spr := Sprite2D.new()
@@ -257,14 +289,20 @@ func _setup_game_entrance_visuals() -> void:
 		plat_spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		stage.add_child(plat_spr)
 		
-	# Ancient Door preview
-	var door_script: Resource = load("res://Scripts/AncientDoor.gd")
-	if door_script:
-		var door := Area2D.new()
-		door.set_script(door_script)
-		door.scale = Vector2(1.6, 1.6)
-		door.position = Vector2(40, -52)
-		stage.add_child(door)
+	# Animated Enemy Slime preview (facing the knight)
+	var slime_tex = load("res://Assets/sprites/slime_green.png") as Texture2D
+	if slime_tex:
+		_slime_spr = Sprite2D.new()
+		_slime_spr.name = "SlimeHeroStage"
+		_slime_spr.texture = slime_tex
+		_slime_spr.hframes = 4
+		_slime_spr.vframes = 3
+		_slime_spr.frame = 0
+		_slime_spr.scale = Vector2(2.6, 2.6)
+		_slime_spr.position = Vector2(36, -34)
+		_slime_spr.flip_h = true
+		_slime_spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		stage.add_child(_slime_spr)
 		
 	# Animated Knight hero (large, crisp nearest-neighbor, authentic idle frame animation)
 	var knight_tex = load("res://Assets/sprites/knight.png") as Texture2D
@@ -285,7 +323,7 @@ func _setup_game_entrance_visuals() -> void:
 		tw.tween_property(_knight_spr, "position:y", -47.0, 0.9).set_trans(Tween.TRANS_SINE)
 		tw.tween_property(_knight_spr, "position:y", -44.0, 0.9).set_trans(Tween.TRANS_SINE)
 		
-	# Animated Gold Coin (12 frames spinning smoothly)
+	# Animated Gold Coin (12 frames spinning smoothly, positioned cleanly above Knight)
 	var coin_tex = load("res://Assets/sprites/coin.png") as Texture2D
 	if coin_tex:
 		_coin_spr = Sprite2D.new()
@@ -294,7 +332,7 @@ func _setup_game_entrance_visuals() -> void:
 		_coin_spr.hframes = 12
 		_coin_spr.frame = 0
 		_coin_spr.scale = Vector2(2.6, 2.6)
-		_coin_spr.position = Vector2(6, -108)
+		_coin_spr.position = Vector2(-28, -108) # Clear view to the left above the knight
 		_coin_spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		stage.add_child(_coin_spr)
 		var ctw := create_tween().set_loops()
@@ -305,7 +343,7 @@ func _setup_game_entrance_visuals() -> void:
 	if font_reg:
 		var prompt := Label.new()
 		prompt.name = "StartPrompt"
-		prompt.text = "[ PRESS SPACE OR ENTER TO EMBARK ]"
+		prompt.text = "[ PRESS SPACE OR ENTER TO PLAY ]"
 		prompt.add_theme_font_override("font", font_reg)
 		prompt.add_theme_font_size_override("font_size", 10)
 		prompt.modulate = Color(0.85, 0.9, 1.0, 0.85)
@@ -396,11 +434,14 @@ func _on_button_pressed(index: int) -> void:
 	
 	match index:
 		0: 
+			GameManager.current_difficulty = _difficulties[_difficulty_idx]
 			emit_signal("play_pressed")
 			get_tree().change_scene_to_file("res://Scenes/Main.tscn")
 		1: 
 			_difficulty_idx = (_difficulty_idx + 1) % _difficulties.size()
-			btn_difficulty.text = "DIFFICULTY: " + _difficulties[_difficulty_idx]
+			var selected_diff := _difficulties[_difficulty_idx]
+			btn_difficulty.text = "DIFFICULTY: " + selected_diff
+			GameManager.current_difficulty = selected_diff
 			emit_signal("difficulty_pressed")
 		2: 
 			if has_node("/root/AudioManager"):

@@ -15,10 +15,13 @@ signal request_restart
 signal request_pause_toggle
 
 # ── State ────────────────────────────────────────────────────────
+static var current_difficulty: String = "BEGINNER"
+
 var session_lives: int  = 3
 var level_number:  int  = 1
 var is_paused:     bool = false
 var is_game_over:  bool = false
+var _is_transitioning: bool = false
 
 # ── References set by Main.gd ────────────────────────────────────
 var hud_node:    Node = null    # typed as Node to avoid circular deps
@@ -40,16 +43,21 @@ func _trigger_game_over() -> void:
 		hud_node.show_game_over()
 
 # ─────────────────────────────────────────────────────────────────
-# Called when player completes the level
+# Called when player completes the level (strictly sequential)
 # ─────────────────────────────────────────────────────────────────
 func on_level_complete() -> void:
+	if _is_transitioning or is_game_over:
+		return
+	_is_transitioning = true
 	is_game_over = false
 	level_number += 1
+	print("[GameManager] Level complete! Advancing sequentially to Level %d" % level_number)
 	_do_fade_transition()
 
 # ─────────────────────────────────────────────────────────────────
 func restart_level() -> void:
 	is_game_over = false
+	_is_transitioning = false
 	if is_paused:
 		toggle_pause()
 	emit_signal("request_restart")
@@ -75,7 +83,20 @@ func reset_for_new_level(_lives: int = 3) -> void:
 
 # ─────────────────────────────────────────────────────────────────
 func _do_fade_transition() -> void:
-	emit_signal("request_next_level")
+	if fade_rect:
+		var tw = create_tween()
+		tw.tween_property(fade_rect, "color:a", 1.0, 0.22)
+		tw.tween_callback(func():
+			emit_signal("request_next_level")
+		)
+		tw.tween_interval(0.12)
+		tw.tween_property(fade_rect, "color:a", 0.0, 0.22)
+		tw.tween_callback(func():
+			_is_transitioning = false
+		)
+	else:
+		emit_signal("request_next_level")
+		_is_transitioning = false
 
 # ─────────────────────────────────────────────────────────────────
 # Build the pause overlay panel (programmatic, no scene needed)

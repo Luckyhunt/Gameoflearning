@@ -65,6 +65,7 @@ var _on_ice: bool = false
 var _invincible: bool = false
 var _invincible_timer: float = 0.0
 var _camera_bounds: Rect2 = Rect2()
+var _completed: bool = false
 
 func set_camera_bounds(bounds: Rect2) -> void:
 	_camera_bounds = bounds
@@ -76,6 +77,7 @@ func _ready() -> void:
 	_spawn_pos = global_position
 
 func setup(spawn_world: Vector2, lives: int) -> void:
+	_completed = false
 	_spawn_pos = spawn_world
 	_checkpoint_pos = spawn_world
 	_lives = lives
@@ -312,6 +314,9 @@ func on_all_enemies_cleared() -> void:
 	on_exit_reached()
 
 func on_exit_reached() -> void:
+	if _completed:
+		return
+	_completed = true
 	var jump_accuracy := clampf(float(_jumps_landed) / float(max(_jumps_attempted, 1)), 0.0, 1.0)
 	var attack_accuracy := clampf(float(_attacks_landed) / float(max(_attacks_attempted, 1)), 0.0, 1.0)
 	var stats := {
@@ -339,6 +344,7 @@ func get_coins() -> int: return _coins_collected
 func get_timer() -> float: return _timer
 func is_invincible() -> bool: return _invincible
 func reset_level_stats() -> void:
+	_completed = false
 	_timer = 0.0
 	_deaths = 0
 	_deaths_hazard = 0

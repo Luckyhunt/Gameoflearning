@@ -29,8 +29,7 @@ var _renderer: Node = null   # LevelRenderer
 var _spawner: Node = null    # EntitySpawner
 var _game_mgr: Node = null   # GameManager reference for pause/game-over gating
 var _visual_manager: Node = null  # VisualManager for theme and particles
-
-var _ancient_door: Node2D = null
+var _level_complete_triggered: bool = false
 
 # ─────────────────────────────────────────────────────────────────
 func setup(p_bridge: EngineBridge, p_layer: TileMapLayer, p_game_mgr: Node) -> void:
@@ -44,6 +43,11 @@ func setup(p_bridge: EngineBridge, p_layer: TileMapLayer, p_game_mgr: Node) -> v
 
 	layer.tile_set = (_renderer as Node).call("build_tileset") as TileSet
 	
+	# Wire spawner enemy elimination signals
+	if _spawner:
+		_spawner.connect("all_enemies_defeated", Callable(self, "_on_all_enemies_defeated"))
+		_spawner.connect("enemy_killed", Callable(self, "_on_spawner_enemy_killed"))
+	
 	# Initialize visual manager
 	_visual_manager = get_node_or_null("/root/VisualManager")
 	if not _visual_manager:
@@ -56,6 +60,7 @@ func setup(p_bridge: EngineBridge, p_layer: TileMapLayer, p_game_mgr: Node) -> v
 
 # ─────────────────────────────────────────────────────────────────
 func generate_level(level_num: int) -> bool:
+	_level_complete_triggered = false
 	(_spawner as Node).call("clear_all")
 
 	var ld: Dictionary = PygamePlatformGenerator.generate_level(level_num)
@@ -76,21 +81,6 @@ func generate_level(level_num: int) -> bool:
 	var spawn_pos: Vector2 = _renderer.get("spawn_world_pos") as Vector2
 	_spawn_or_reposition_player(spawn_pos)
 
-	# Spawn Ancient Door at the exit location
-	if _ancient_door and is_instance_valid(_ancient_door):
-		_ancient_door.queue_free()
-		_ancient_door = null
-
-	var exit_pos: Vector2 = _renderer.get("exit_world_pos") as Vector2
-	if exit_pos != Vector2.ZERO:
-		var door_script: Resource = load("res://Scripts/AncientDoor.gd")
-		if door_script:
-			_ancient_door = Area2D.new()
-			_ancient_door.set_script(door_script)
-			_ancient_door.global_position = exit_pos + Vector2(0, 16.0)
-			layer.get_parent().add_child(_ancient_door)
-			_ancient_door.connect("door_entered", Callable(self, "_on_ancient_door_entered"))
-
 	emit_signal(
 		"level_ready",
 		level_num,
@@ -98,18 +88,24 @@ func generate_level(level_num: int) -> bool:
 		int(ld.get("height", 0))
 	)
 
-	print("[LevelController] Level %d ready with Ancient Door — %dx%d" % [
+	print("[LevelController] Level %d generated — %dx%d with %d enemies" % [
 		level_num,
 		int(ld.get("width", 0)),
-		int(ld.get("height", 0))
+		int(ld.get("height", 0)),
+		_spawner.call("get_active_enemy_count") if _spawner else 0
 	])
 	return true
 
-func _on_ancient_door_entered() -> void:
+func _on_all_enemies_defeated() -> void:
+	if _level_complete_triggered:
+		return
+	_level_complete_triggered = true
+	print("[LevelController] ALL ENEMIES DEFEATED! Advancing sequentially to next level...")
 	if player_node and is_instance_valid(player_node):
-		player_node.call("on_exit_reached")
+		player_node.call("on_all_enemies_cleared")
 
 func restart_level(_lives: int = 3) -> void:
+	_level_complete_triggered = false
 	if player_node == null:
 		return
 	var spawn_pos: Vector2 = _renderer.get("spawn_world_pos") as Vector2
@@ -126,22 +122,18 @@ func process_frame() -> void:
 	if (is_p != null and is_p == true) or (is_go != null and is_go == true):
 		return
 
-	_check_exit_overlap()
-
 func get_hud_snapshot() -> Dictionary:
 	if player_node == null or _game_mgr == null:
 		return {}
-	var spawn_pos: Vector2 = _renderer.get("spawn_world_pos") as Vector2
-	var exit_pos: Vector2 = _renderer.get("exit_world_pos") as Vector2
-	var ppos: Vector2 = player_node.get("global_position") as Vector2
-	var total_dx: float = abs(exit_pos.x - spawn_pos.x)
-	var curr_dx: float = clampf(ppos.x - spawn_pos.x, 0.0, total_dx)
-	var progress_val: float = curr_dx / maxf(total_dx, 1.0)
+	var enemy_count: int = 0
+	if _spawner and is_instance_valid(_spawner) and _spawner.has_method("get_active_enemy_count"):
+		enemy_count = int(_spawner.call("get_active_enemy_count"))
 	
 	return {
 		"level_number": int(_game_mgr.get("level_number")),
 		"elapsed_time": float(player_node.call("get_timer")),
-		"progress": progress_val,
+		"enemies_remaining": enemy_count,
+		"progress": 0.0,
 	}
 
 # ─────────────────────────────────────────────────────────────────
@@ -185,11 +177,6 @@ func _tile_of_player() -> Vector2i:
 	var pos: Vector2 = player_node.get("global_position") as Vector2
 	return Vector2i(int(pos.x / TILE_SIZE), int(pos.y / TILE_SIZE))
 
-func _check_exit_overlap() -> void:
-	var exit_pos: Vector2i = _renderer.get("exit_tile_pos") as Vector2i
-	if _tile_of_player() == exit_pos:
-		player_node.call("on_exit_reached")
-
 func _check_coin_overlaps() -> void:
 	var pt := _tile_of_player()
 	var coins: Array = _renderer.get("live_coin_tiles") as Array
@@ -219,10 +206,9 @@ func _check_hazard_overlaps() -> void:
 
 # ─────────────────────────────────────────────────────────────────
 func _on_spawner_enemy_killed(remaining_count: int) -> void:
-	print("[LevelController] Enemy killed. Remaining: %d" % remaining_count)
-	if remaining_count <= 0 and player_node != null:
-		print("[LevelController] ALL ENEMIES CLEARED! Level Complete.")
-		player_node.call("on_all_enemies_cleared")
+	print("[LevelController] Enemy eliminated. Remaining: %d" % remaining_count)
+	if remaining_count <= 0:
+		_on_all_enemies_defeated()
 
 func _on_player_died(death_type: String) -> void:
 	emit_signal("player_died", death_type)

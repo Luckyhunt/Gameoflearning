@@ -143,6 +143,8 @@ func _update_hud() -> void:
 		return
 	hud_node.set("level_number", snapshot.get("level_number", 1))
 	hud_node.set("elapsed_time", snapshot.get("elapsed_time", 0.0))
+	if snapshot.has("enemies_remaining"):
+		hud_node.set("enemies_remaining", snapshot.get("enemies_remaining", 0))
 	if hud_node.has_method("set_progress"):
 		hud_node.call("set_progress", snapshot.get("progress", 0.0))
 

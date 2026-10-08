@@ -87,13 +87,19 @@ func _draw() -> void:
 						var ry := offset_y + y * scale
 						draw_rect(Rect2(rx, ry, maxf(scale, 1.0), maxf(scale, 1.0)), plat_color, true)
 	
-	# Draw Ancient Door (Exit Marker)
-	var door_x := offset_x + _exit_tile.x * scale + scale / 2.0
-	var door_y := offset_y + _exit_tile.y * scale + scale / 2.0
-	var pulse_glow := (sin(_pulse_timer) + 1.0) * 0.5
-	var door_color := Color(0.3, 0.9, 1.0, 0.7 + pulse_glow * 0.3)
-	draw_circle(Vector2(door_x, door_y), maxf(scale * 0.9, 3.5), door_color)
-	draw_circle(Vector2(door_x, door_y), maxf(scale * 0.4, 1.8), Color(1.0, 1.0, 1.0, 1.0))
+	# Draw Enemy Radar Blips
+	var enemies := get_tree().get_nodes_in_group("enemies")
+	for e in enemies:
+		if is_instance_valid(e) and e is Node2D:
+			var e_pos: Vector2 = e.global_position
+			var ex_tile := e_pos.x / float(tile_size)
+			var ey_tile := e_pos.y / float(tile_size)
+			var ex := offset_x + ex_tile * scale
+			var ey := offset_y + ey_tile * scale
+			var pulse_glow := (sin(_pulse_timer * 1.5) + 1.0) * 0.5
+			var enemy_color := Color(1.0, 0.25, 0.35, 0.8 + pulse_glow * 0.2)
+			draw_circle(Vector2(ex, ey), maxf(scale * 0.85, 3.2), enemy_color)
+			draw_circle(Vector2(ex, ey), maxf(scale * 0.35, 1.5), Color(1.0, 0.9, 0.9))
 	
 	# Draw Player Blip
 	if _player_ref and is_instance_valid(_player_ref):

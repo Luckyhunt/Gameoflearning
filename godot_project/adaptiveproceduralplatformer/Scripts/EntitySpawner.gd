@@ -1,37 +1,36 @@
 ## EntitySpawner.gd
 ## ─────────────────────────────────────────────────────────────────
-## Spawns and despawns enemy and platform entities from a
-## level dictionary produced by generate_adaptive_level().
-##
-## Main.gd calls spawn_all(ld) after rendering the tile layer,
-## and clear_all() before generating the next level.
+## Spawns and manages enemy entities on procedural platforms.
+## Enforces minimum safe distance from player spawn, mixes Green
+## and Purple slimes, and tracks level completion via enemy elimination.
 ## ─────────────────────────────────────────────────────────────────
 
 extends Node
 
 const TILE_SIZE: int = 32
 
-# ── Active entities (kept for cleanup) ───────────────────────────
-var _active_enemies: Array = []    # Array[Node]
-var _active_platforms: Array = []  # Array[Node]
+signal enemy_killed(remaining_count: int)
+signal all_enemies_defeated
 
-# ─────────────────────────────────────────────────────────────────
+# Active entities
+var _active_enemies: Array[Node] = []
+var _active_platforms: Array[Node] = []
+
 func spawn_all(ld: Dictionary) -> void:
+	clear_all()
 	_spawn_enemies(ld)
 	_spawn_platforms(ld)
 
 func clear_all() -> void:
-	for e: Node in _active_enemies:
+	for e in _active_enemies:
 		if is_instance_valid(e):
 			e.queue_free()
 	_active_enemies.clear()
 
-	for p: Node in _active_platforms:
+	for p in _active_platforms:
 		if is_instance_valid(p):
 			p.queue_free()
 	_active_platforms.clear()
-
-signal enemy_killed(remaining_count: int)
 
 func get_active_enemy_count() -> int:
 	var count := 0
@@ -40,19 +39,127 @@ func get_active_enemy_count() -> int:
 			count += 1
 	return count
 
-func _spawn_enemies(_ld: Dictionary) -> void:
-	# Enemies removed per design — pure platformer level traversal
-	pass
+func get_active_enemies() -> Array[Node]:
+	var valid_list: Array[Node] = []
+	for e in _active_enemies:
+		if is_instance_valid(e):
+			valid_list.append(e)
+	return valid_list
+
+func _spawn_enemies(ld: Dictionary) -> void:
+	var enemy_script: Resource = load("res://Scripts/Enemy.gd")
+	if enemy_script == null:
+		push_error("[EntitySpawner] Enemy.gd not found!")
+		return
+
+	var platforms: Array = ld.get("platforms", []) as Array
+	var spawn_x: int = int(ld.get("spawn_x", 2))
+	var spawn_y: int = int(ld.get("spawn_y", 16))
+	var spawn_world := Vector2(spawn_x * TILE_SIZE, spawn_y * TILE_SIZE)
+
+	# Determine difficulty
+	var diff_str := "MODERATE"
+	var gm := get_node_or_null("/root/GameManager")
+	if gm and "current_difficulty" in gm and str(gm.get("current_difficulty")) != "":
+		diff_str = str(gm.get("current_difficulty")).to_upper()
+	elif ld.has("stats"):
+		var stats: Dictionary = ld.get("stats") as Dictionary
+		var diff_score: float = float(stats.get("difficulty_score", 0.4))
+		if diff_score < 0.4: diff_str = "BEGINNER"
+		elif diff_score < 0.65: diff_str = "MODERATE"
+		elif diff_score < 0.85: diff_str = "ADVANCED"
+		else: diff_str = "EXPERT"
+
+	# Calculate enemy quota based on the 4 difficulty classifications
+	var quota: int = 3
+	var purple_ratio: float = 0.33
+	if diff_str == "BEGINNER":
+		quota = 2
+		purple_ratio = 0.0 # Pure green slimes
+	elif diff_str == "MODERATE":
+		quota = 3
+		purple_ratio = 0.34 # 1 purple, 2 green
+	elif diff_str == "ADVANCED":
+		quota = 4
+		purple_ratio = 0.50 # 2 purple, 2 green
+	elif diff_str == "EXPERT":
+		quota = 5
+		purple_ratio = 0.70 # Mostly purple slimes
+
+	# Filter viable platforms: must be at least 220px away from spawn point
+	var viable_platforms: Array = []
+	for p_raw in platforms:
+		var p: Dictionary = p_raw as Dictionary
+		var px: int = int(p.get("x", 0))
+		var py: int = int(p.get("y", 0))
+		var plen: int = int(p.get("length", 1))
+		var is_start: bool = bool(p.get("is_start", false))
+		
+		if is_start or plen < 2:
+			continue
+			
+		var center_world := Vector2((px + plen / 2.0) * TILE_SIZE, py * TILE_SIZE)
+		if center_world.distance_to(spawn_world) >= 220.0:
+			viable_platforms.append(p)
+
+	if viable_platforms.is_empty():
+		# Fallback: all non-start platforms
+		for p_raw in platforms:
+			var p: Dictionary = p_raw as Dictionary
+			if not bool(p.get("is_start", false)):
+				viable_platforms.append(p)
+
+	# Shuffle viable platforms for variety
+	viable_platforms.shuffle()
+
+	var to_spawn: int = mini(quota, viable_platforms.size())
+	if to_spawn < 1 and not platforms.is_empty():
+		to_spawn = 1
+		viable_platforms = [platforms.back()]
+
+	# Build tile lookup for platform edge checking
+	var tiles_2d: Array = ld.get("tiles", []) as Array
+	var tile_lookup: Dictionary = {}
+	for y in range(tiles_2d.size()):
+		var row: Array = tiles_2d[y] as Array
+		for x in range(row.size()):
+			tile_lookup[Vector2i(x, y)] = int(row[x])
+
+	var purple_count: int = int(round(to_spawn * purple_ratio))
+
+	for i in range(to_spawn):
+		var plat: Dictionary = viable_platforms[i] as Dictionary
+		var px: int = int(plat.get("x", 0))
+		var py: int = int(plat.get("y", 0))
+		var plen: int = int(plat.get("length", 1))
+
+		var enemy_node := CharacterBody2D.new()
+		enemy_node.set_script(enemy_script)
+		
+		# Position standing cleanly on the platform surface
+		var world_x := (px + plen / 2.0) * TILE_SIZE
+		var world_y := py * TILE_SIZE - 2.0
+		enemy_node.global_position = Vector2(world_x, world_y)
+
+		var etype = 1 if i < purple_count else 0
+		enemy_node.call("setup", etype, tile_lookup)
+		enemy_node.connect("enemy_killed", Callable(self, "_on_enemy_killed"))
+
+		get_parent().add_child(enemy_node)
+		_active_enemies.append(enemy_node)
+
+	print("[EntitySpawner] Spawned %d enemies (Difficulty: %s)" % [_active_enemies.size(), diff_str])
 
 func _on_enemy_killed(enemy_node: Node) -> void:
 	if _active_enemies.has(enemy_node):
 		_active_enemies.erase(enemy_node)
 	var remaining := get_active_enemy_count()
 	emit_signal("enemy_killed", remaining)
+	print("[EntitySpawner] Enemy killed! %d remaining" % remaining)
 
-# ─────────────────────────────────────────────────────────────────
-# Moving Platforms
-# ─────────────────────────────────────────────────────────────────
+	if remaining <= 0:
+		print("[EntitySpawner] All enemies defeated! Emitting all_enemies_defeated")
+		emit_signal("all_enemies_defeated")
 
 func _spawn_platforms(ld: Dictionary) -> void:
 	var moving: Array = ld.get("moving_platforms", []) as Array
@@ -61,7 +168,6 @@ func _spawn_platforms(ld: Dictionary) -> void:
 
 	var plat_script: Resource = load("res://Scripts/MovingPlatform.gd")
 	if plat_script == null:
-		push_error("[EntitySpawner] MovingPlatform.gd not found")
 		return
 
 	for raw in moving:
@@ -83,5 +189,3 @@ func _spawn_platforms(ld: Dictionary) -> void:
 
 		get_parent().add_child(node)
 		_active_platforms.append(node)
-
-	print("[EntitySpawner] Spawned %d moving platforms" % _active_platforms.size())

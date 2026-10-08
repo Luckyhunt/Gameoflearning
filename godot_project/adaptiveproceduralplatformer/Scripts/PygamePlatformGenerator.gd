@@ -350,6 +350,7 @@ static func generate_level(level_num: int = 1, seed_val: int = 0) -> Dictionary:
 		"exit_y": exit_y_tile,
 		"tiles": tiles,
 		"coins": coins,
+		"platforms": platforms,
 		"enemies": [],
 		"checkpoints": [],
 		"moving_platforms": [],

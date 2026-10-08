@@ -31,6 +31,7 @@ var deaths:          int   = 0
 var lives:           int   = 3
 var combo:           int   = 0
 var progress:        float = 0.0
+var enemies_remaining: int = 0
 
 # Internal
 var _prev_difficulty: int  = -1
@@ -209,20 +210,26 @@ func _refresh() -> void:
 	# Left panel - Level progression
 	lbl_level.text = "LEVEL %d" % level_number
 	lbl_theme.text = _current_theme
-	lbl_objective.text = "ANCIENT DOOR"
-	lbl_objective.modulate = Color(0.4, 0.9, 1.0)
-
-	if bridge:
-		var diff_name: String = bridge.get_difficulty_name()
-		var diff_level: int = bridge.get_difficulty_level()
-
-		lbl_difficulty.text = "[ %s ]" % diff_name.to_upper()
-
-		if diff_level != _prev_difficulty:
-			_prev_difficulty = diff_level
-			_flash_difficulty()
+	if enemies_remaining > 0:
+		lbl_objective.text = "DEFEAT ENEMIES: %d" % enemies_remaining
+		lbl_objective.modulate = Color(1.0, 0.45, 0.35)
 	else:
-		lbl_difficulty.text = "[ NORMAL ]"
+		lbl_objective.text = "ENEMIES CLEARED!"
+		lbl_objective.modulate = Color(0.4, 1.0, 0.5)
+
+	# 4 Level Difficulty Classification: BEGINNER, MODERATE, ADVANCED, EXPERT
+	var diff_str := "BEGINNER"
+	var gm := get_node_or_null("/root/GameManager")
+	if gm and "current_difficulty" in gm and str(gm.get("current_difficulty")) != "":
+		diff_str = str(gm.get("current_difficulty")).to_upper()
+	elif bridge:
+		var d_lvl: int = bridge.get_difficulty_level()
+		match d_lvl:
+			0, 1: diff_str = "BEGINNER"
+			2: diff_str = "MODERATE"
+			3: diff_str = "ADVANCED"
+			_: diff_str = "EXPERT"
+	lbl_difficulty.text = "[ %s ]" % diff_str
 
 	# Right panel - Player stats
 	if lbl_lives:

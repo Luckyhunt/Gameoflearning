@@ -63,7 +63,24 @@ func render(ld: Dictionary) -> void:
 			if tt == 4 or tt == 5 or tt == 6 or tt == 7 or tt == 8:
 				continue
 
-			if ATLAS.has(tt):
+			if tt == 2:
+				# Green 3-slice platform from Source 1 (platforms_32.png)
+				var has_left: bool = (x > 0 and int((tile_grid[y] as Array)[x - 1]) == 2)
+				var has_right: bool = (x < level_width - 1 and int((tile_grid[y] as Array)[x + 1]) == 2)
+				
+				var plat_coord: Vector2i = Vector2i(1, 0)
+				if not has_left and has_right:
+					plat_coord = Vector2i(0, 0) # Left rounded cap
+				elif has_left and not has_right:
+					plat_coord = Vector2i(2, 0) # Right rounded cap
+				elif not has_left and not has_right:
+					plat_coord = Vector2i(0, 0) # 1-tile platform
+				else:
+					plat_coord = Vector2i(1, 0) # Center repeatable section
+
+				layer.set_cell(Vector2i(x, y), 1, plat_coord)
+			elif ATLAS.has(tt):
+				# Solid walls (1), hazards (3), etc. from Source 0 (world_tileset.png)
 				layer.set_cell(Vector2i(x, y), 0, ATLAS[tt] as Vector2i)
 
 	# Spawn / Exit world positions
@@ -111,39 +128,59 @@ func build_tileset() -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
 
-	var src := TileSetAtlasSource.new()
+	# Source 0: world_tileset.png (solid boundaries & hazards)
+	var src0 := TileSetAtlasSource.new()
 	var tex_path: String = "res://Assets/sprites/world_tileset.png"
 	if ResourceLoader.exists(tex_path):
-		src.texture = load(tex_path) as Texture2D
+		src0.texture = load(tex_path) as Texture2D
 	else:
-		src.texture = _create_debug_atlas()
-	src.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	ts.add_source(src, 0)
+		src0.texture = _create_debug_atlas()
+	src0.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
+	ts.add_source(src0, 0)
 
 	for tile_type: int in ATLAS.keys():
 		var coords: Vector2i = ATLAS[tile_type] as Vector2i
-		if not src.has_tile(coords):
-			src.create_tile(coords)
+		if not src0.has_tile(coords):
+			src0.create_tile(coords)
 
-	var solid_tiles: Array = [1, 2, 3, 10, 11, 12, 13, 14]
+	# Source 1: platforms_32.png (Green 3-Slice Platform: left cap, middle, right cap)
+	var src1 := TileSetAtlasSource.new()
+	var plat_path: String = "res://Assets/sprites/platforms_32.png"
+	if ResourceLoader.exists(plat_path):
+		src1.texture = load(plat_path) as Texture2D
+		src1.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
+		ts.add_source(src1, 1)
+
+		for coord: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]:
+			if not src1.has_tile(coord):
+				src1.create_tile(coord)
+
 	ts.add_physics_layer(0)
-
 	var half_size: float = TILE_SIZE / 2.0
+	var poly := PackedVector2Array([
+		Vector2(-half_size, -half_size),
+		Vector2(half_size, -half_size),
+		Vector2(half_size, half_size),
+		Vector2(-half_size, half_size),
+	])
+
+	var solid_tiles: Array = [1, 3, 10, 11, 12, 13, 14]
 	for tile_type: int in solid_tiles:
 		if not ATLAS.has(tile_type):
 			continue
 		var coords: Vector2i = ATLAS[tile_type] as Vector2i
-		var td: TileData = src.get_tile_data(coords, 0)
-		if td == null:
-			continue
-		var poly := PackedVector2Array([
-			Vector2(-half_size, -half_size),
-			Vector2(half_size, -half_size),
-			Vector2(half_size, half_size),
-			Vector2(-half_size, half_size),
-		])
-		td.add_collision_polygon(0)
-		td.set_collision_polygon_points(0, 0, poly)
+		var td: TileData = src0.get_tile_data(coords, 0)
+		if td != null:
+			td.add_collision_polygon(0)
+			td.set_collision_polygon_points(0, 0, poly)
+
+	# Add collision to green platform tiles (Source 1)
+	if ResourceLoader.exists(plat_path):
+		for coord: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]:
+			var ptd: TileData = src1.get_tile_data(coord, 0)
+			if ptd != null:
+				ptd.add_collision_polygon(0)
+				ptd.set_collision_polygon_points(0, 0, poly)
 
 	return ts
 
