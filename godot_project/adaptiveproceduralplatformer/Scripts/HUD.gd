@@ -283,13 +283,46 @@ func flash_checkpoint() -> void:
 
 func show_game_over() -> void:
 	if _game_over_panel:
+		# ── Populate stats BEFORE making visible ──────────────────────────
+		# deaths and elapsed_time are synced every frame by Main.gd
+		var lbl_dv := _game_over_panel.get_node_or_null(
+			"CenterContainer/VBoxContainer/StatsContainer/HBoxStats/VBoxStatsLeft/LblDeathsValue"
+		) as Label
+		if lbl_dv:
+			lbl_dv.text = str(deaths)
+
+		var lbl_tv := _game_over_panel.get_node_or_null(
+			"CenterContainer/VBoxContainer/StatsContainer/HBoxStats/VBoxStatsCenter/LblTimeValue"
+		) as Label
+		if lbl_tv:
+			var total_sec := int(elapsed_time)
+			lbl_tv.text = "%02d:%02d" % [total_sec / 60, total_sec % 60]
+
+		# Apply pixel fonts to stat labels
+		var font_bold = load("res://Assets/fonts/PixelOperator8-Bold.ttf") as Font
+		var font_reg  = load("res://Assets/fonts/PixelOperator8.ttf") as Font
+		for node_path in [
+			"CenterContainer/VBoxContainer/StatsContainer/HBoxStats/VBoxStatsLeft/LblDeathsValue",
+			"CenterContainer/VBoxContainer/StatsContainer/HBoxStats/VBoxStatsCenter/LblTimeValue",
+		]:
+			var lbl := _game_over_panel.get_node_or_null(node_path) as Label
+			if lbl and font_bold:
+				lbl.add_theme_font_override("font", font_bold)
+				lbl.add_theme_font_size_override("font_size", 20)
+		for node_path in [
+			"CenterContainer/VBoxContainer/StatsContainer/HBoxStats/VBoxStatsLeft/LblDeathsLabel",
+			"CenterContainer/VBoxContainer/StatsContainer/HBoxStats/VBoxStatsCenter/LblTimeLabel",
+		]:
+			var lbl := _game_over_panel.get_node_or_null(node_path) as Label
+			if lbl and font_reg:
+				lbl.add_theme_font_override("font", font_reg)
+				lbl.add_theme_font_size_override("font_size", 9)
+
 		_game_over_panel.visible = true
+
 		var stats_right := _game_over_panel.get_node_or_null("VBox/HBoxStats/VBoxStatsRight") as Control
 		if stats_right:
 			stats_right.visible = false
-			
-		var font_bold = load("res://Assets/fonts/PixelOperator8-Bold.ttf") as Font
-		var font_reg = load("res://Assets/fonts/PixelOperator8.ttf") as Font
 
 		var lbl_go := _game_over_panel.get_node_or_null("VBox/LblGameOver") as Label
 		if lbl_go and font_bold:
@@ -341,7 +374,7 @@ func show_game_over() -> void:
 					main.call("_restart_level")
 			)
 			vbox.add_child(btn)
-			
+
 			var btn_menu := Button.new()
 			btn_menu.name = "BtnMainMenu"
 			btn_menu.text = "MAIN MENU"
@@ -357,7 +390,7 @@ func show_game_over() -> void:
 				get_tree().change_scene_to_file("res://Scenes/MainMenu.tscn")
 			)
 			vbox.add_child(btn_menu)
-			
+
 			if has_node("/root/AudioManager"):
 				get_node("/root/AudioManager").hook_buttons(btn)
 				get_node("/root/AudioManager").hook_buttons(btn_menu)

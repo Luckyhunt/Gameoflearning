@@ -45,7 +45,9 @@ func update(delta: float) -> void:
 	_handle_horizontal_movement()
 	_handle_jump_buffer()
 	_execute_jump()
+	_pre_slide_vy = _character.velocity.y  # capture BEFORE slide resolves contact
 	_character.move_and_slide()
+	_check_enemy_contacts()  # stomp (top) + side damage — both via slide collision normals
 	_detect_floor_type()
 	_check_fall_death()
 
@@ -112,6 +114,43 @@ func _execute_jump() -> void:
 		_jumps_attempted += 1
 		emit_signal("jump_attempted")
 		_set_state(PlayerEnums.MovementState.JUMP)
+
+# ── Mario-style enemy contact detection ─────────────────────────────────────
+# After move_and_slide(), check every collision this frame.
+# The collision normal tells us HOW the player hit the enemy:
+#   normal.y < -0.5  → player came from ABOVE  → stomp kill
+#   normal.y >= -0.3 → player hit from SIDE/BELOW → player takes damage
+var _pre_slide_vy: float = 0.0       # velocity.y captured BEFORE move_and_slide
+var _side_damage_cooldown: float = 0.0  # prevents damage spam on sustained contact
+
+func _check_enemy_contacts() -> void:
+	if _side_damage_cooldown > 0.0:
+		_side_damage_cooldown -= get_physics_process_delta_time()
+
+	for i in _character.get_slide_collision_count():
+		var col := _character.get_slide_collision(i)
+		var collider := col.get_collider()
+		if collider == null or not collider.is_in_group("enemies"):
+			continue
+
+		# normal points FROM enemy TOWARD player
+		var normal := col.get_normal()
+
+		if normal.y < -0.5 and _pre_slide_vy > 30.0:
+			# ── TOP CONTACT → Stomp kill ──────────────────────────────────
+			if collider.has_method("stomp_kill"):
+				collider.call("stomp_kill", _character)
+				break
+		else:
+			# ── SIDE / BOTTOM CONTACT → Player takes damage ───────────────
+			if _side_damage_cooldown > 0.0:
+				continue  # still in damage cooldown
+			if _character.has_method("is_invincible") and _character.call("is_invincible"):
+				continue  # player is invincible (just took damage)
+			if _character.has_method("on_enemy_contact"):
+				_character.call("on_enemy_contact", collider.global_position)
+				_side_damage_cooldown = 0.6  # 0.6s cooldown between damage ticks
+				break
 
 func _detect_floor_type() -> void:
 	var old_ground_state = _ground_state

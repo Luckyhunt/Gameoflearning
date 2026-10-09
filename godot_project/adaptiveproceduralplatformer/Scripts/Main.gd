@@ -147,6 +147,13 @@ func _update_hud() -> void:
 		hud_node.set("enemies_remaining", snapshot.get("enemies_remaining", 0))
 	if hud_node.has_method("set_progress"):
 		hud_node.call("set_progress", snapshot.get("progress", 0.0))
+	# Push lives and deaths to HUD every frame
+	var pnode = _level_controller.get("player_node") if _level_controller else null
+	if pnode and is_instance_valid(pnode):
+		if pnode.has_method("get_lives"):
+			hud_node.set("lives", int(pnode.call("get_lives")))
+		if pnode.has_method("get_deaths"):
+			hud_node.set("deaths", int(pnode.call("get_deaths")))
 
 # ─────────────────────────────────────────────────────────────────
 func _on_player_died(_death_type: String) -> void:

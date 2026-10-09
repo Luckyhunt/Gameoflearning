@@ -44,6 +44,12 @@ func _ready() -> void:
 	# Initialize components
 	_movement.setup(self, _tile_service)
 	_interaction.setup(self, _tile_service)
+
+	# Ensure player's collision mask includes enemy layer (layer 2 = bit 1)
+	# so get_slide_collision() detects enemies for stomp kills.
+	# Layer 1 = world/tiles, Layer 2 = enemies
+	collision_layer = 1    # player is on layer 1
+	collision_mask  = 1 | 2  # collide with tiles (1) AND enemies (2)
 	
 	# Setup camera
 	if _camera:
@@ -254,3 +260,9 @@ func on_checkpoint_hit(tile_pos: Vector2i, world_pos: Vector2) -> void:
 
 func on_exit_reached() -> void:
 	_on_exit_reached()
+
+func on_all_enemies_cleared() -> void:
+	# Called by LevelController when all enemies on the current level are defeated.
+	# Triggers the level-complete flow so the game advances sequentially.
+	var stats: Dictionary = _analytics.get_level_stats()
+	emit_signal("level_complete", stats)

@@ -86,7 +86,8 @@ func _spawn_enemies(ld: Dictionary) -> void:
 		quota = 5
 		purple_ratio = 0.70 # Mostly purple slimes
 
-	# Filter viable platforms: must be at least 220px away from spawn point
+	# Filter viable platforms: must be at least 200px away from spawn point
+	# and not directly above player spawn column
 	var viable_platforms: Array = []
 	for p_raw in platforms:
 		var p: Dictionary = p_raw as Dictionary
@@ -99,11 +100,12 @@ func _spawn_enemies(ld: Dictionary) -> void:
 			continue
 			
 		var center_world := Vector2((px + plen / 2.0) * TILE_SIZE, py * TILE_SIZE)
-		if center_world.distance_to(spawn_world) >= 220.0:
+		var dx := absf(center_world.x - spawn_world.x)
+		if center_world.distance_to(spawn_world) >= 200.0 and dx >= 80.0:
 			viable_platforms.append(p)
 
 	if viable_platforms.is_empty():
-		# Fallback: all non-start platforms
+		# Fallback: all non-start platforms with distance check
 		for p_raw in platforms:
 			var p: Dictionary = p_raw as Dictionary
 			if not bool(p.get("is_start", false)):
@@ -141,14 +143,18 @@ func _spawn_enemies(ld: Dictionary) -> void:
 		var world_y := py * TILE_SIZE - 2.0
 		enemy_node.global_position = Vector2(world_x, world_y)
 
+		# Explicit platform left and right corner bounds
+		var min_patrol_x: float = px * TILE_SIZE + 10.0
+		var max_patrol_x: float = (px + plen) * TILE_SIZE - 10.0
+
 		var etype = 1 if i < purple_count else 0
-		enemy_node.call("setup", etype, tile_lookup)
+		enemy_node.call("setup", etype, min_patrol_x, max_patrol_x, tile_lookup)
 		enemy_node.connect("enemy_killed", Callable(self, "_on_enemy_killed"))
 
 		get_parent().add_child(enemy_node)
 		_active_enemies.append(enemy_node)
 
-	print("[EntitySpawner] Spawned %d enemies (Difficulty: %s)" % [_active_enemies.size(), diff_str])
+	print("[EntitySpawner] Spawned %d platform-bounded enemies (Difficulty: %s)" % [_active_enemies.size(), diff_str])
 
 func _on_enemy_killed(enemy_node: Node) -> void:
 	if _active_enemies.has(enemy_node):

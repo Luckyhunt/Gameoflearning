@@ -1,8 +1,13 @@
 # ============================================================
 # Enemy.gd  —  Platformer Slime Enemy AI
 # ============================================================
-# Supports Green & Purple Slimes with idle/patrol states,
-# proximity-based aggro, and top-stomp melee kill mechanics.
+# STOMP ARCHITECTURE (same as Mario/Celeste):
+#   - Stomp is detected on the PLAYER'S side by checking slide
+#     collisions after move_and_slide(). If the player hits an
+#     enemy with an upward normal while falling -> stomp.
+#   - This enemy exposes: stomp_kill()  -> called by player
+#                         side_damage() -> called by Area2D side-touch
+#   - The enemy's Area2D only handles SIDE damage to player.
 
 extends CharacterBody2D
 class_name Enemy
@@ -19,49 +24,36 @@ enum EnemyType {
 
 @export var enemy_type: EnemyType = EnemyType.GREEN_SLIME
 
-# Movement & Detection parameters
-var patrol_speed: float = 45.0
-var chase_speed: float = 80.0
-var aggro_radius: float = 180.0
-var patrol_range: float = 90.0
+var patrol_speed: float = 38.0
+var platform_min_x: float = -99999.0
+var platform_max_x: float = 99999.0
 
 var _dir: float = 1.0
-var _start_x: float = 0.0
-var _player: CharacterBody2D = null
 var _alive: bool = true
-var _is_aggro: bool = false
 
-# Sprite & Animation
 var _sprite: Sprite2D = null
 var _anim_timer: float = 0.0
 var _anim_frame: int = 0
 
-# Platform edge checking
 var _tile_lookup: Dictionary = {}
+var _overlapping_players: Array = []   # bodies currently touching SideDamageArea
+var _damage_cooldown: float = 0.0      # seconds until next side-damage tick
+const DAMAGE_INTERVAL: float = 0.8    # damage player every 0.8s of contact
 
 func _ready() -> void:
 	add_to_group("enemies")
-	_start_x = global_position.x
-	_player = get_tree().get_first_node_in_group("player") as CharacterBody2D
-	
 	_setup_visuals()
 	_setup_collision()
 
-func setup(p_type: EnemyType, tile_lookup: Dictionary = {}) -> void:
+func setup(p_type: EnemyType, min_x: float = -99999.0, max_x: float = 99999.0, tile_lookup: Dictionary = {}) -> void:
 	enemy_type = p_type
+	platform_min_x = min_x
+	platform_max_x = max_x
 	_tile_lookup = tile_lookup
-	
 	if enemy_type == EnemyType.GREEN_SLIME:
-		patrol_speed = 45.0
-		chase_speed = 80.0
-		aggro_radius = 170.0
-		patrol_range = 80.0
+		patrol_speed = 36.0
 	else:
-		patrol_speed = 65.0
-		chase_speed = 115.0
-		aggro_radius = 240.0
-		patrol_range = 100.0
-		
+		patrol_speed = 50.0
 	if _sprite:
 		var tex_path := "res://Assets/sprites/slime_green.png" if enemy_type == EnemyType.GREEN_SLIME else "res://Assets/sprites/slime_purple.png"
 		if ResourceLoader.exists(tex_path):
@@ -81,7 +73,13 @@ func _setup_visuals() -> void:
 	add_child(_sprite)
 
 func _setup_collision() -> void:
-	# Hitbox shape for CharacterBody2D
+	# CharacterBody2D collision setup
+	# Layer 2 = enemies. Mask includes 1 (tiles) so gravity works,
+	# and also includes 1 (player layer) so the player's move_and_slide
+	# generates a slide collision that _check_stomp_kills() can read.
+	collision_layer = 2
+	collision_mask  = 1  # tiles only — player resolves FROM player's side
+
 	var cs := CollisionShape2D.new()
 	cs.name = "CollisionShape2D"
 	var box := RectangleShape2D.new()
@@ -90,149 +88,132 @@ func _setup_collision() -> void:
 	cs.position = Vector2(0, -7)
 	cs.debug_color = Color(0, 0, 0, 0)
 	add_child(cs)
-	
-	# Touch detection area
-	var touch_area := Area2D.new()
-	touch_area.name = "TouchArea"
-	var tcs := CollisionShape2D.new()
-	var tbox := RectangleShape2D.new()
-	tbox.size = Vector2(22, 16)
-	tcs.shape = tbox
-	tcs.position = Vector2(0, -8)
-	tcs.debug_color = Color(0, 0, 0, 0)
-	touch_area.add_child(tcs)
-	add_child(touch_area)
-	
-	touch_area.body_entered.connect(_on_touch_body_entered)
+
+	# Side-damage Area2D — detects player walking INTO the enemy from the side.
+	# collision_mask = 1 because the player CharacterBody2D is on collision_layer 1.
+	# Stomps are handled exclusively by PlayerMovement._check_stomp_kills().
+	var side_area := Area2D.new()
+	side_area.name = "SideDamageArea"
+	side_area.collision_layer = 0  # Area doesn't need to be seen by others
+	side_area.collision_mask  = 1  # MUST match player's collision_layer (= 1)
+
+	var scs := CollisionShape2D.new()
+	var sbox := RectangleShape2D.new()
+	sbox.size = Vector2(16, 10)
+	scs.shape = sbox
+	scs.position = Vector2(0, -5)
+	scs.debug_color = Color(0, 0, 0, 0)
+	side_area.add_child(scs)
+	add_child(side_area)
+	side_area.body_entered.connect(_on_side_body_entered)
+	side_area.body_exited.connect(_on_side_body_exited)
 
 func _physics_process(delta: float) -> void:
 	if not _alive:
 		return
-		
-	if _player == null or not is_instance_valid(_player):
-		_player = get_tree().get_first_node_in_group("player") as CharacterBody2D
-		
-	# Apply gravity
+
 	if not is_on_floor():
 		velocity.y += GRAVITY * delta
 	else:
 		velocity.y = 0.0
 
-	# Aggro check: only attack when player gets near
-	var dist_to_player := 9999.0
-	if _player and is_instance_valid(_player):
-		dist_to_player = global_position.distance_to(_player.global_position)
-		
-	if dist_to_player <= aggro_radius:
-		_is_aggro = true
-	elif dist_to_player > aggro_radius * 1.5:
-		_is_aggro = false
-		
-	if _is_aggro and _player:
-		# Chase player
-		var target_dir := signf(_player.global_position.x - global_position.x)
-		if target_dir != 0.0:
-			_dir = target_dir
-		velocity.x = _dir * chase_speed
-	else:
-		# Calm platform patrol
-		if not _can_move_ahead(_dir):
-			_dir *= -1.0
-		elif global_position.x > _start_x + patrol_range:
-			_dir = -1.0
-		elif global_position.x < _start_x - patrol_range:
-			_dir = 1.0
-		velocity.x = _dir * patrol_speed
+	var cur_x := global_position.x
+	if cur_x <= platform_min_x:
+		global_position.x = platform_min_x
+		_dir = 1.0
+	elif cur_x >= platform_max_x:
+		global_position.x = platform_max_x
+		_dir = -1.0
+	elif not _can_move_ahead(_dir):
+		_dir *= -1.0
 
+	velocity.x = _dir * patrol_speed
 	move_and_slide()
+
+	if platform_min_x > -90000.0 and platform_max_x < 90000.0:
+		global_position.x = clampf(global_position.x, platform_min_x, platform_max_x)
+
 	_update_animation(delta)
+
+	# Continuous side-damage tick while player overlaps the SideDamageArea
+	if _damage_cooldown > 0.0:
+		_damage_cooldown -= delta
+	if not _overlapping_players.is_empty() and _damage_cooldown <= 0.0:
+		for p in _overlapping_players:
+			if is_instance_valid(p) and p.is_in_group("player"):
+				if p.has_method("is_invincible") and p.call("is_invincible"):
+					continue
+				if p.has_method("on_enemy_contact"):
+					p.call("on_enemy_contact", global_position)
+					_damage_cooldown = DAMAGE_INTERVAL
+					break
 
 func _can_move_ahead(dir_x: float) -> bool:
 	if _tile_lookup.is_empty():
 		return true
 	var check_x := global_position.x + dir_x * 16.0
-	var foot_y := global_position.y + 6.0
-	var wall_y := global_position.y - 8.0
-
+	var foot_y  := global_position.y + 6.0
+	var wall_y  := global_position.y - 8.0
 	var tile_ahead := Vector2i(int(check_x / TILE_SIZE), int(wall_y / TILE_SIZE))
-	var tile_foot := Vector2i(int(check_x / TILE_SIZE), int(foot_y / TILE_SIZE))
-
-	var wall_type: int = _tile_lookup.get(tile_ahead, 0)
-	if wall_type == 1: 
-		return false # Wall ahead
-
-	var ground_type: int = _tile_lookup.get(tile_foot, 0)
-	if ground_type == 0: 
-		return false # Platform drop-off (don't fall into void during patrol)
-
+	var tile_foot  := Vector2i(int(check_x / TILE_SIZE), int(foot_y / TILE_SIZE))
+	if _tile_lookup.get(tile_ahead, 0) == 1:
+		return false
+	if _tile_lookup.get(tile_foot, 0) == 0:
+		return false
 	return true
 
 func _update_animation(delta: float) -> void:
 	if not _sprite:
 		return
-		
-	# Facing direction
 	_sprite.flip_h = (_dir > 0.0)
-	
-	# Frame cycling
 	_anim_timer += delta
-	var frame_speed := 0.12 if _is_aggro else 0.18
-	if _anim_timer >= frame_speed:
+	if _anim_timer >= 0.16:
 		_anim_timer = 0.0
 		_anim_frame = (_anim_frame + 1) % 4
-		# Row 0 = idle/patrol (frames 0..3), Row 1 = aggro hop (frames 4..7)
-		var base_frame := 4 if _is_aggro else 0
-		_sprite.frame = base_frame + _anim_frame
+		_sprite.frame = _anim_frame
 
-func _on_touch_body_entered(body: Node2D) -> void:
+func _on_side_body_entered(body: Node2D) -> void:
 	if not _alive:
 		return
-		
 	if body.is_in_group("player"):
-		_handle_player_collision(body)
+		if not _overlapping_players.has(body):
+			_overlapping_players.append(body)
 
-func _handle_player_collision(player: Node2D) -> void:
-	var p_vel: Vector2 = player.velocity if "velocity" in player else Vector2.ZERO
-	# Melee jump stomp check: player is moving downward and their feet/center is above the slime
-	var is_falling: bool = p_vel.y > -50.0 # falling or at apex
-	var is_above: bool = player.global_position.y < (global_position.y - 4.0)
 
-	if is_falling and is_above:
-		# Successful Melee Stomp Attack!
-		_stomp_kill(player)
-	else:
-		# Player collided from the side or below without jumping on enemy
-		if player.has_method("is_invincible") and player.call("is_invincible"):
-			return
-		if player.has_method("on_enemy_contact"):
-			player.call("on_enemy_contact", global_position)
+func _on_side_body_exited(body: Node2D) -> void:
+	_overlapping_players.erase(body)
 
-func _stomp_kill(player: Node2D) -> void:
+
+func _on_side_damage_body_entered(body: Node2D) -> void:
+	# Legacy alias kept for safety
+	_on_side_body_entered(body)
+
+# Called by PlayerMovement when it detects stomp via its own slide-collisions
+func stomp_kill(player: Node2D) -> void:
+	if not _alive:
+		return
 	_alive = false
-	
-	# Bounce the player upward in satisfying platformer style
+	_overlapping_players.clear()  # stop side-damage ticks
 	if "velocity" in player:
-		player.velocity.y = -350.0
-		
+		player.velocity.y = -380.0
 	if has_node("/root/AudioManager"):
 		get_node("/root/AudioManager").play_sound("power_up")
-		
-	# Squash & vanish tween
 	if _sprite:
 		var tw := create_tween()
 		tw.set_parallel(true)
-		tw.tween_property(_sprite, "scale:y", 0.15, 0.12)
-		tw.tween_property(_sprite, "modulate:a", 0.0, 0.15)
+		tw.tween_property(_sprite, "scale:y", 0.1, 0.1)
+		tw.tween_property(_sprite, "scale:x", 1.4, 0.1)
+		tw.tween_property(_sprite, "modulate:a", 0.0, 0.18)
 		tw.chain().tween_callback(Callable(self, "_finish_kill"))
 	else:
 		_finish_kill()
-
-func _finish_kill() -> void:
-	emit_signal("enemy_killed", self)
-	queue_free()
 
 func kill() -> void:
 	if not _alive:
 		return
 	_alive = false
 	_finish_kill()
+
+func _finish_kill() -> void:
+	emit_signal("enemy_killed", self)
+	queue_free()
